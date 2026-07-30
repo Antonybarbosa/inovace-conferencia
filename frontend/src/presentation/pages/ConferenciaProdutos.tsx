@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useConferenciaAtiva } from '../../application/hooks/useConferenciaAtiva';
 import { Botao, Campo, Container, Grid, Label, Painel } from '../components';
 import { Loading } from '../components/Loading/Loading';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 export function ConferenciaProdutosPage() {
   const { nunota } = useParams<{ nunota: string }>();
@@ -27,7 +28,9 @@ export function ConferenciaProdutosPage() {
   const [quantidade, setQuantidade] = useState('1');
   const [conferindo, setConferindo] = useState(false);
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
+  const [showDivergenciaModal, setShowDivergenciaModal] = useState(false);
   const [qtdVolumes, setQtdVolumes] = useState('1');
+  const [finalizando, setFinalizando] = useState(false);
   const [imagemAmpliada, setImagemAmpliada] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -67,15 +70,54 @@ export function ConferenciaProdutosPage() {
   }
 
   async function handleFinalizar() {
+    setFinalizando(true);
     try {
-      await finalizar(0, parseInt(qtdVolumes) || 0);
+      // 1ª chamada: finalizar
+      const resultado = await finalizar(0, parseInt(qtdVolumes) || 0);
+      
+      // Verificar se há divergência na resposta ou se há itens pendentes
+      const pendentes = itens.filter(i => parseFloat(i.qtdConf) < parseFloat(i.qtdPed));
+      if (pendentes.length > 0) {
+        // Sankhya finalizou como divergente — mostrar modal
+        setShowFinalizarModal(false);
+        setShowDivergenciaModal(true);
+      } else {
+        // Sem divergência — finalizou OK
+        setShowFinalizarModal(false);
+        navigate('/conferencias', { state: { mensagem: `Pedido ${conferencia?.numNota} do cliente ${conferencia?.parceiro} finalizado com sucesso!` } });
+      }
+    } catch (err: any) {
+      // Erro do Sankhya pode indicar divergência
       setShowFinalizarModal(false);
-      navigate('/conferencias');
-    } catch { /* hook trata */ }
+      setShowDivergenciaModal(true);
+    } finally {
+      setFinalizando(false);
+    }
+  }
+
+  async function handleCortarDivergentes() {
+    setFinalizando(true);
+    try {
+      // Chamar ConferenciaSP.cortar para cortar itens divergentes
+      const service = new (await import('../../infrastructure/api/ConferenciaApiService')).ConferenciaApiService();
+      await service.cortarNota(nuNotaNum, 0, parseInt(qtdVolumes) || 0);
+      setShowDivergenciaModal(false);
+      navigate('/conferencias', { state: { mensagem: `Pedido ${conferencia?.numNota} finalizado com corte de divergentes.` } });
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Erro ao cortar divergentes');
+      setShowDivergenciaModal(false);
+    } finally {
+      setFinalizando(false);
+    }
+  }
+
+  async function handleConcluirDivergente() {
+    setShowDivergenciaModal(false);
+    navigate('/conferencias', { state: { mensagem: `Pedido ${conferencia?.numNota} finalizado como divergente.` } });
   }
 
   const totalItens = itens.length;
-  const itensConferidos = itens.filter((i) => parseFloat(i.qtdConf) > 0).length;
+  const itensConferidos = itens.filter((i) => parseFloat(i.qtdConf) >= parseFloat(i.qtdPed)).length;
   const itensPendentes = totalItens - itensConferidos;
 
   if (loading && !conferencia) {
@@ -84,12 +126,13 @@ export function ConferenciaProdutosPage() {
 
   return (
     <div className="page-container">
+      <div className="conferencia-top-fixo">
       {/* Header */}
       <header className="page-header">
         <Botao variant="ghost" size="sm" onClick={() => navigate('/conferencias')}>← Voltar</Botao>
         <div className="header-info">
           <h1>Conferência #{conferencia?.numConf}</h1>
-          <span className="nota-info">Nota {conferencia?.numNota} — {conferencia?.parceiro}</span>
+          <span className="nota-info">Pedido {conferencia?.numNota} — {conferencia?.parceiro}</span>
         </div>
         <Botao variant="success" size="sm" onClick={() => setShowFinalizarModal(true)} disabled={loading}>
           Finalizar
@@ -146,6 +189,7 @@ export function ConferenciaProdutosPage() {
           </form>
         </Container>
       </Painel>
+      </div>
 
       {/* Feedback */}
       {error && <div className="error-message" onClick={() => setError(null)}>{error}</div>}
@@ -163,8 +207,21 @@ export function ConferenciaProdutosPage() {
         </Container>
       )}
 
-      {/* Tabela de Itens */}
-      <Painel titulo="Itens Pendentes" subtitulo={`${itensPendentes} restantes`}>
+      {/* Listas de itens - side by side em desktop */}
+      <div className="itens-grid-desktop">
+        {/* Itens Pendentes */}
+        <Painel titulo="Itens Pendentes" subtitulo={`${itensPendentes} restantes`}>
+        {itens.length === 0 && !error ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px' }}>
+            <DotLottieReact
+              src="https://lottie.host/f141a079-702f-4d37-88f7-c91b33722274/yQw3d1y8TG.lottie"
+              autoplay
+              loop
+              style={{ width: '150px', height: '150px' }}
+            />
+            <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--slate-500)', marginTop: '8px' }}>Carregando itens...</p>
+          </div>
+        ) : (
         <Container variant="outlined" padding="none">
           <table className="tabela-itens">
             <thead>
@@ -217,6 +274,7 @@ export function ConferenciaProdutosPage() {
             </tbody>
           </table>
         </Container>
+        )}
       </Painel>
 
       {/* Itens conferidos */}
@@ -272,6 +330,28 @@ export function ConferenciaProdutosPage() {
             </table>
           </Container>
         </Painel>
+      )}
+      </div>
+
+      {/* Modal divergência */}
+      {showDivergenciaModal && (
+        <div className="modal-overlay">
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header-row">
+              <h2 className="modal-title">Conferência concluída</h2>
+              <button className="modal-close" onClick={() => setShowDivergenciaModal(false)}>×</button>
+            </div>
+            <p className="modal-message-destaque">Conferência finalizada como divergente.</p>
+            <div className="modal-actions-vertical">
+              <Botao variant="secondary" size="md" fullWidth onClick={handleCortarDivergentes} loading={finalizando} disabled={finalizando}>
+                ✂ Cortar itens divergentes
+              </Botao>
+              <Botao variant="primary" size="md" fullWidth onClick={handleConcluirDivergente} loading={finalizando} disabled={finalizando}>
+                ✓ Concluir
+              </Botao>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal finalizar */}

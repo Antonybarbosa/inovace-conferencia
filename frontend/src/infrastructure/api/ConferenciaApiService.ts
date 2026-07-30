@@ -60,4 +60,9 @@ export class ConferenciaApiService implements IConferenciaService {
     );
     return response.data;
   }
+
+  async cortarNota(nuNota: number, peso = 0, qtdVol = 0): Promise<any> {
+    const response = await httpClient.post('/api/conferencias/cortar', { nuNota, peso, qtdVol });
+    return response.data;
+  }
 }

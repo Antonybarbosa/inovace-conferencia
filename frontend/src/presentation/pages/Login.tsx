@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../application/contexts/AuthContext';
 import { Botao, Campo } from '../components';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 
 export function LoginPage() {
   const [usuario, setUsuario] = useState('');
@@ -47,6 +48,15 @@ export function LoginPage() {
               <span>conferência de saída.</span>
             </h2>
             <p>Sistema de conferência cega integrado ao Sankhya para gestão de expedição em tempo real.</p>
+
+            <div style={{ width: '200px', height: '200px', margin: '24px auto 0' }}>
+              <DotLottieReact
+                src="https://lottie.host/9ea946f2-11b8-4c08-8a5c-ef92d7583abe/GDn1GXbgRO.lottie"
+                autoplay
+                loop
+                style={{ width: '100%', height: '100%' }}
+              />
+            </div>
           </div>
           <div className="login-footer-dark">
             © 2026 ConferCheck. Integrado ao ERP Sankhya.

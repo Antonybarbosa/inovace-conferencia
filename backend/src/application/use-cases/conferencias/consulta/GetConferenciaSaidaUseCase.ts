@@ -35,6 +35,7 @@ export class GetConferenciaSaidaUseCase {
   async execute(correlationId?: string): Promise<GetConferenciaSaidaOutput> {
     const sql = `
 SELECT
+    --CON.STATUS||CON2.STATUS,
     CAB.NUNOTA,
     CAB.CODEMP,
     CAB.DTFATUR AS DT_FATURAMENTO,
@@ -42,11 +43,13 @@ SELECT
     CON.NUCONF,
     CAB.AD_USUARIOCONF  AS USUARIO_CONFERENTE,
     CAB.NUNOTA AS NRO_UNICO,
-    DECODE(STATUS,'A','Em andamento', 
+    DECODE(CON.STATUS||CON2.STATUS,'A','Em andamento', 
                   'D','Finalizada Divergente', 
                   'F', 'Finalizada OK', 
                   'R', 'Aguardando recontagem', 
-                  'Sem Conferência')
+                  'AR', 'Recontagem em Andamento',
+                  'FR', 'Recontagem Finalizada OK',
+                  'Aguardando Conferência')
     AS STATUS_CONFERENCIA,
     ROT.DESCRROTA AS ROTA_ENTREGA,
     TRANS.RAZAOSOCIAL AS TRANSPORTADORA,
@@ -66,6 +69,8 @@ INNER JOIN TGFTOP TOP
        AND TOP.DHALTER = CAB.DHTIPOPER
 LEFT JOIN TGFCON2 CON
        ON CON.NUCONF = CAB.NUCONFATUAL
+LEFT JOIN TGFCON2 CON2
+       ON CON2.NUCONF = CON.NUCONFORIG
 LEFT JOIN TSIUSU USU
        ON USU.CODUSU = CON.CODUSUCONF
 LEFT JOIN TGFPAR PAR

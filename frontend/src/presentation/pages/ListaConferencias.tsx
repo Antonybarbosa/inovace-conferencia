@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../application/contexts/AuthContext';
 import { useConferencias } from '../../application/hooks/useConferencias';
 import { Botao, Container, Painel, Label } from '../components';
@@ -12,6 +12,8 @@ export function ListaConferenciasPage() {
   const { pedidos, loading, error, recarregar } = useConferencias();
   const [pedidosFiltrados, setPedidosFiltrados] = useState<PedidoConferencia[]>([]);
   const navigate = useNavigate();
+  const location = useLocation();
+  const mensagemSucesso = (location.state as any)?.mensagem || null;
 
   useEffect(() => {
     setPedidosFiltrados(pedidos);
@@ -41,6 +43,11 @@ export function ListaConferenciasPage() {
           <Label variant="caption">{pedidosFiltrados.length} de {pedidos.length} pedidos</Label>
         </div>
       </Container>
+
+      {/* Mensagem de sucesso */}
+      {mensagemSucesso && (
+        <div className="success-message">{mensagemSucesso}</div>
+      )}
 
       {/* Erro */}
       {error && <div className="error-message">{error}</div>}
@@ -76,7 +83,7 @@ export function ListaConferenciasPage() {
               >
                 <div className="card-header">
                   <div className="card-header-left">
-                    <Label variant="title">Nota {pedido.numNota}</Label>
+                    <Label variant="title">Pedido {pedido.numNota}</Label>
                     <span className="card-nunota">#{pedido.nunota}</span>
                     <span className="card-parceiro">{pedido.parceiro}</span>
                   </div>
