@@ -65,9 +65,34 @@ export function useConferenciaAtiva(nuNota: number) {
       });
       setUltimoConferido(resultado);
 
-      // Atualizar lista de itens
+      // Atualizar lista de itens — mesclar com itens atuais para não perder os já conferidos
       const { itens: itensAtualizados } = await service.listarItensPedido(nuNota);
-      setItens(itensAtualizados);
+      
+      setItens(prev => {
+        // Mapa dos itens atualizados pelo Sankhya
+        const mapaAtualizado = new Map(itensAtualizados.map(i => [i.sequencia || i.codProd, i]));
+        
+        // Atualizar itens existentes e manter os que sumiram da resposta (totalmente conferidos)
+        const merged = prev.map(item => {
+          const chave = item.sequencia || item.codProd;
+          const atualizado = mapaAtualizado.get(chave);
+          if (atualizado) {
+            return atualizado; // Atualiza com dados novos
+          }
+          // Item sumiu da resposta = totalmente conferido. Marcar qtdConf = qtdPed
+          return { ...item, qtdConf: item.qtdPed };
+        });
+
+        // Adicionar itens novos que não estavam na lista anterior (caso raro)
+        for (const item of itensAtualizados) {
+          const chave = item.sequencia || item.codProd;
+          if (!prev.find(p => (p.sequencia || p.codProd) === chave)) {
+            merged.push(item);
+          }
+        }
+
+        return merged;
+      });
 
       return resultado;
     } catch (err: any) {

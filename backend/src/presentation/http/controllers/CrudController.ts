@@ -4,6 +4,7 @@ import { LoadRecordUseCase } from '../../../application/use-cases/crud/LoadRecor
 import { SaveRecordUseCase } from '../../../application/use-cases/crud/SaveRecordUseCase.js';
 import { RemoveRecordUseCase } from '../../../application/use-cases/crud/RemoveRecordUseCase.js';
 import { LoadViewUseCase } from '../../../application/use-cases/crud/LoadViewUseCase.js';
+import { GetProdutoImagemUseCase } from '../../../application/use-cases/crud/GetProdutoImagemUseCase.js';
 
 /**
  * Controller de CRUD genérico
@@ -16,6 +17,7 @@ export class CrudController {
     private readonly saveRecordUseCase: SaveRecordUseCase,
     private readonly removeRecordUseCase: RemoveRecordUseCase,
     private readonly loadViewUseCase: LoadViewUseCase,
+    private readonly getProdutoImagemUseCase: GetProdutoImagemUseCase,
   ) {}
 
   /**
@@ -164,5 +166,23 @@ export class CrudController {
       ],
       documentation: 'https://developer.sankhya.com.br/reference/get_loadrecords',
     });
+  }
+
+  /** GET /crud/produto/:codProd/imagem — Retorna imagem do produto via .dbimage */
+  async produtoImagem(req: Request, res: Response): Promise<void> {
+    try {
+      const { codProd } = req.params;
+      const imageBuffer = await this.getProdutoImagemUseCase.execute(codProd, req.correlationId);
+
+      if (imageBuffer && imageBuffer.length > 0) {
+        res.setHeader('Content-Type', 'image/jpeg');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.status(200).send(imageBuffer);
+      } else {
+        res.status(404).json({ error: 'Imagem não disponível', codProd });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   }
 }

@@ -79,6 +79,28 @@ export class SankhyaGatewayAdapter implements IGatewayPort {
     return this.request<T>('delete', endpoint, undefined, options);
   }
 
+  async getImage(endpoint: string, correlationId?: string): Promise<Buffer | null> {
+    const accessToken = await this.getValidToken();
+
+    try {
+      const response = await this.client.get(endpoint, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'image/jpeg',
+          ...(correlationId ? { 'X-Correlation-ID': correlationId } : {}),
+        },
+        responseType: 'arraybuffer',
+      });
+
+      if (response.data && response.data.length > 0) {
+        return Buffer.from(response.data);
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   private async request<T>(
     method: 'get' | 'post' | 'put' | 'patch' | 'delete',
     endpoint: string,

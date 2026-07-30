@@ -18,6 +18,7 @@ import { LoadRecordUseCase } from './application/use-cases/crud/LoadRecordUseCas
 import { SaveRecordUseCase } from './application/use-cases/crud/SaveRecordUseCase.js';
 import { RemoveRecordUseCase } from './application/use-cases/crud/RemoveRecordUseCase.js';
 import { LoadViewUseCase } from './application/use-cases/crud/LoadViewUseCase.js';
+import { GetProdutoImagemUseCase } from './application/use-cases/crud/GetProdutoImagemUseCase.js';
 
 // Application (Use Cases) - Proxy
 import { GatewayProxyUseCase } from './application/use-cases/proxy/GatewayProxyUseCase.js';
@@ -81,6 +82,7 @@ export function buildApp(): Application {
   const saveRecordUseCase = new SaveRecordUseCase(gatewayAdapter);
   const removeRecordUseCase = new RemoveRecordUseCase(gatewayAdapter);
   const loadViewUseCase = new LoadViewUseCase(gatewayAdapter);
+  const getProdutoImagemUseCase = new GetProdutoImagemUseCase(gatewayAdapter);
 
   const gatewayProxyUseCase = new GatewayProxyUseCase(gatewayAdapter);
 
@@ -106,6 +108,7 @@ export function buildApp(): Application {
     saveRecordUseCase,
     removeRecordUseCase,
     loadViewUseCase,
+    getProdutoImagemUseCase,
   );
   const apiProxyController = new ApiProxyController(gatewayProxyUseCase);
   const conferenciasController = new ConferenciasController(

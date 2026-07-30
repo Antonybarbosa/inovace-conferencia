@@ -42,10 +42,12 @@ SELECT
     CON.NUCONF,
     CAB.AD_USUARIOCONF  AS USUARIO_CONFERENTE,
     CAB.NUNOTA AS NRO_UNICO,
-    CASE
-        WHEN CAB.NUCONFATUAL IS NOT NULL THEN 'Em andamento'
-        ELSE 'Sem Conferência'
-    END AS STATUS_CONFERENCIA,
+    DECODE(STATUS,'A','Em andamento', 
+                  'D','Finalizada Divergente', 
+                  'F', 'Finalizada OK', 
+                  'R', 'Aguardando recontagem', 
+                  'Sem Conferência')
+    AS STATUS_CONFERENCIA,
     ROT.DESCRROTA AS ROTA_ENTREGA,
     TRANS.RAZAOSOCIAL AS TRANSPORTADORA,
     CAB.ORDEMCARGA,
@@ -80,14 +82,18 @@ LEFT JOIN TGFROT ROT
 WHERE CAB.TIPMOV = 'P'
     AND CAB.PENDENTE = 'S'
     AND CAB.STATUSNOTA = 'L'
+    AND EXISTS (
+        SELECT DISTINCT I.CODPROD
+        FROM TGFITE I
+        WHERE I.NUNOTA = CAB.NUNOTA
+    )
     AND NOT EXISTS (
         SELECT 1 FROM TGFVAR WHERE NUNOTAORIG = CAB.NUNOTA
     )
     AND CAB.CODPARC NOT IN (32698, 1502, 37104, 791)
     AND NVL(TOP.NUCCO,0) > 0
     AND CAB.CODVEND NOT IN (43)
-    AND CAB.CODTIPOPER NOT IN (500,660,760)
-    AND CAB.LIBCONF IS NULL
+    AND NVL(CON.STATUS,'S') IN ('A','R','S') 
     `.trim();
 
     const response = await this.gateway.serviceCall<any>(

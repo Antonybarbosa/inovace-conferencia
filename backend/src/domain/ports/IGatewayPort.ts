@@ -40,4 +40,7 @@ export interface IGatewayPort {
     module?: 'mge' | 'mgecom',
     mgeSession?: string,
   ): Promise<SankhyaServiceResponse<T>>;
+
+  /** Busca imagem (binário) de um endpoint do Gateway */
+  getImage(endpoint: string, correlationId?: string): Promise<Buffer | null>;
 }

@@ -13,6 +13,7 @@ export function createCrudRoutes(controller: CrudController): Router {
   router.post('/delete/:entity', (req, res) => controller.removeRecord(req, res));
   router.post('/view/:viewName', (req, res) => controller.loadView(req, res));
   router.get('/entities', (req, res) => controller.listEntities(req, res));
+  router.get('/produto/:codProd/imagem', (req, res) => controller.produtoImagem(req, res));
 
   return router;
 }

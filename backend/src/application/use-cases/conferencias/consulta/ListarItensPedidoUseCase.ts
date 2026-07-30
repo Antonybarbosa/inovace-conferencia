@@ -3,6 +3,7 @@ import { CONFERENCIA_CLIENT_EVENTS } from '../shared/clientEvents.js';
 
 export interface ItemPedido {
   codProd: string;
+  sequencia: string;
   descrProd: string | null;
   codBarra: string | null;
   referencia: string | null;
@@ -23,81 +24,104 @@ export interface ListarItensPedidoOutput {
 
 /**
  * Use Case: Listar itens do pedido com quantidades pedidas e conferidas
- * Enriquece com descrição e código de barras via DbExplorerSP
+ * 
+ * Estratégia: busca TODOS os itens da nota via SQL (nunca perde itens),
+ * e cruza com as qtdConf do ConferenciaSP.listarItensPedido
  */
 export class ListarItensPedidoUseCase {
   constructor(private readonly gateway: IGatewayPort) {}
 
   async execute(input: ListarItensPedidoInput, correlationId?: string): Promise<ListarItensPedidoOutput> {
-    // 1. Buscar itens via ConferenciaSP
-    const response = await this.gateway.serviceCall<any>(
-      'ConferenciaSP.listarItensPedido',
-      {
-        serviceName: 'ConferenciaSP.listarItensPedido',
-        requestBody: {
-          params: { nuNota: input.nuNota },
-          ...CONFERENCIA_CLIENT_EVENTS,
+    // 1. Buscar TODOS os itens da nota via SQL (fonte completa)
+    const todosItens = await this.buscarTodosItensDaNota(input.nuNota, correlationId);
+
+    // 2. Buscar qtdConf via ConferenciaSP (retorna apenas divergentes)
+    let conferenciaIniciada = false;
+    const qtdConfMap = new Map<string, string>();
+
+    try {
+      const response = await this.gateway.serviceCall<any>(
+        'ConferenciaSP.listarItensPedido',
+        {
+          serviceName: 'ConferenciaSP.listarItensPedido',
+          requestBody: {
+            params: { nuNota: input.nuNota },
+            ...CONFERENCIA_CLIENT_EVENTS,
+          },
         },
-      },
-      correlationId,
-      'mgecom',
-    );
+        correlationId,
+        'mgecom',
+      );
 
-    const body = response.responseBody;
-    const produtos = body?.DIVERGENCIAS?.PRODUTO || [];
-    const conferenciaIniciada = body?.DIVERGENCIAS?.CONFERENCIA_INICIADA === 'true';
+      const body = response.responseBody;
+      conferenciaIniciada = body?.DIVERGENCIAS?.CONFERENCIA_INICIADA === 'true';
+      const produtos = body?.DIVERGENCIAS?.PRODUTO || [];
+      const lista = Array.isArray(produtos) ? produtos : [produtos];
 
-    const itensRaw = (Array.isArray(produtos) ? produtos : [produtos]).map((p: any) => ({
-      codProd: p.CODPROD?.$ || '',
-      qtdPed: p.QTDPED?.$ || '0',
-      qtdConf: p.QTDCONF?.$ || '0',
-      controle: p.CONTROLE?.$ || null,
-    }));
-
-    if (itensRaw.length === 0) {
-      return { conferenciaIniciada, itens: [], paginacao: body?.paginacao === 'true' };
+      for (const p of lista) {
+        const codProd = p.CODPROD?.$ || '';
+        const qtdConf = p.QTDCONF?.$ || '0';
+        if (codProd) qtdConfMap.set(codProd, qtdConf);
+      }
+    } catch {
+      // Se falhar, continuamos sem as qtdConf (todos ficam como 0)
     }
 
-    // 2. Enriquecer com descrição e código de barras
-    const codProds = itensRaw.map((i) => i.codProd).filter(Boolean);
-    const produtoInfo = await this.buscarInfoProdutos(codProds, correlationId);
+    // 3. Cruzar: distribuir qtdConf por sequência
+    // O Sankhya agrupa por CODPROD, mas temos múltiplas sequências do mesmo produto
+    const itens: ItemPedido[] = todosItens.map((item) => {
+      const qtdConfFromSankhya = qtdConfMap.get(item.codProd);
 
-    const itens: ItemPedido[] = itensRaw.map((item) => ({
-      ...item,
-      descrProd: produtoInfo.get(item.codProd)?.descrProd || null,
-      codBarra: produtoInfo.get(item.codProd)?.codBarra || null,
-      referencia: produtoInfo.get(item.codProd)?.referencia || null,
-    }));
+      let qtdConf: string;
+      if (qtdConfFromSankhya !== undefined) {
+        // Item está na lista de divergências
+        // Distribuir qtdConf entre as sequências do mesmo CODPROD proporcionalmente
+        const mesmosProd = todosItens.filter(i => i.codProd === item.codProd);
+        if (mesmosProd.length === 1) {
+          qtdConf = qtdConfFromSankhya;
+        } else {
+          // Proporção baseada na qtdPed de cada sequência
+          const totalPedMesmoProd = mesmosProd.reduce((s, i) => s + parseFloat(i.qtdPed), 0);
+          const totalConf = parseFloat(qtdConfFromSankhya);
+          const proporcao = totalPedMesmoProd > 0 ? parseFloat(item.qtdPed) / totalPedMesmoProd : 0;
+          qtdConf = String(Math.min(parseFloat(item.qtdPed), Math.round(totalConf * proporcao)));
+        }
+      } else if (conferenciaIniciada) {
+        // Conferência iniciada mas item não está na lista de divergências = totalmente conferido
+        qtdConf = item.qtdPed;
+      } else {
+        qtdConf = '0';
+      }
+
+      return { ...item, qtdConf };
+    });
 
     return {
       conferenciaIniciada,
       itens,
-      paginacao: body?.paginacao === 'true',
+      paginacao: false,
     };
   }
 
   /**
-   * Busca descrição, referência e código de barras dos produtos via SQL
+   * Busca todos os itens da nota via SQL com descrição e código de barras
    */
-  private async buscarInfoProdutos(
-    codProds: string[],
+  private async buscarTodosItensDaNota(
+    nuNota: number,
     correlationId?: string,
-  ): Promise<Map<string, { descrProd: string; codBarra: string | null; referencia: string | null }>> {
-    const map = new Map<string, { descrProd: string; codBarra: string | null; referencia: string | null }>();
-
-    if (codProds.length === 0) return map;
-
-    const inList = codProds.join(',');
-
+  ): Promise<ItemPedido[]> {
     const sql = `
-      SELECT P.CODPROD, P.DESCRPROD, P.REFERENCIA, B.CODBARRA
-      FROM TGFPRO P
+      SELECT ITE.CODPROD, ITE.SEQUENCIA, ITE.QTDNEG, ITE.CONTROLE,
+             PRO.DESCRPROD, PRO.REFERENCIA, BAR.CODBARRA
+      FROM TGFITE ITE
+      INNER JOIN TGFPRO PRO ON PRO.CODPROD = ITE.CODPROD
       LEFT JOIN (
         SELECT CODPROD, MIN(CODBARRA) AS CODBARRA
         FROM TGFBAR
         GROUP BY CODPROD
-      ) B ON B.CODPROD = P.CODPROD
-      WHERE P.CODPROD IN (${inList})
+      ) BAR ON BAR.CODPROD = ITE.CODPROD
+      WHERE ITE.NUNOTA = ${nuNota}
+      ORDER BY ITE.SEQUENCIA
     `;
 
     try {
@@ -112,21 +136,18 @@ export class ListarItensPedidoUseCase {
 
       const rows: any[] = response.responseBody?.rows || [];
 
-      for (const row of rows) {
-        const codProd = String(row[0]);
-        if (!map.has(codProd)) {
-          map.set(codProd, {
-            descrProd: row[1] || '',
-            referencia: row[2] || null,
-            codBarra: row[3] || null,
-          });
-        }
-      }
-    } catch (error) {
-      // Se falhar a busca complementar, retorna sem enriquecimento
-      console.warn('[ListarItensPedido] Falha ao enriquecer produtos:', (error as Error).message);
+      return rows.map((row) => ({
+        codProd: String(row[0]),
+        sequencia: String(row[1]),
+        qtdPed: String(row[2] || '0'),
+        controle: row[3] || null,
+        descrProd: row[4] || null,
+        referencia: row[5] || null,
+        codBarra: row[6] || null,
+        qtdConf: '0',
+      }));
+    } catch {
+      return [];
     }
-
-    return map;
   }
 }

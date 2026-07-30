@@ -26,6 +26,9 @@ export function ConferenciaProdutosPage() {
   const [codBarra, setCodBarra] = useState('');
   const [quantidade, setQuantidade] = useState('1');
   const [conferindo, setConferindo] = useState(false);
+  const [showFinalizarModal, setShowFinalizarModal] = useState(false);
+  const [qtdVolumes, setQtdVolumes] = useState('1');
+  const [imagemAmpliada, setImagemAmpliada] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -38,12 +41,20 @@ export function ConferenciaProdutosPage() {
 
   async function handleBuscarProduto(e: FormEvent) {
     e.preventDefault();
-    if (!codBarra.trim()) return;
-    try { await buscarProduto(codBarra.trim()); } catch { /* hook trata */ }
+    if (!codBarra.trim() || conferindo) return;
+    setConferindo(true);
+    try {
+      const qtd = parseFloat(quantidade).toFixed(9);
+      await conferirItem(codBarra.trim(), qtd);
+      setCodBarra('');
+      setQuantidade('1');
+      inputRef.current?.focus();
+    } catch { /* hook trata */ }
+    finally { setConferindo(false); }
   }
 
   async function handleConferir() {
-    if (!codBarra.trim()) return;
+    if (!codBarra.trim() || conferindo) return;
     setConferindo(true);
     try {
       const qtd = parseFloat(quantidade).toFixed(9);
@@ -56,9 +67,11 @@ export function ConferenciaProdutosPage() {
   }
 
   async function handleFinalizar() {
-    if (!confirm('Deseja finalizar a conferência?')) return;
-    try { await finalizar(); navigate('/conferencias'); }
-    catch { /* hook trata */ }
+    try {
+      await finalizar(0, parseInt(qtdVolumes) || 0);
+      setShowFinalizarModal(false);
+      navigate('/conferencias');
+    } catch { /* hook trata */ }
   }
 
   const totalItens = itens.length;
@@ -78,6 +91,9 @@ export function ConferenciaProdutosPage() {
           <h1>Conferência #{conferencia?.numConf}</h1>
           <span className="nota-info">Nota {conferencia?.numNota} — {conferencia?.parceiro}</span>
         </div>
+        <Botao variant="success" size="sm" onClick={() => setShowFinalizarModal(true)} disabled={loading}>
+          Finalizar
+        </Botao>
       </header>
 
       {/* Resumo */}
@@ -119,10 +135,9 @@ export function ConferenciaProdutosPage() {
               step="1"
             />
             <Botao
-              type="button"
+              type="submit"
               variant="primary"
               size="lg"
-              onClick={handleConferir}
               disabled={conferindo || !codBarra.trim()}
               loading={conferindo}
             >
@@ -149,7 +164,7 @@ export function ConferenciaProdutosPage() {
       )}
 
       {/* Tabela de Itens */}
-      <Painel titulo="Itens do Pedido" subtitulo={`${itensConferidos} de ${totalItens} conferidos`}>
+      <Painel titulo="Itens Pendentes" subtitulo={`${itensPendentes} restantes`}>
         <Container variant="outlined" padding="none">
           <table className="tabela-itens">
             <thead>
@@ -161,26 +176,40 @@ export function ConferenciaProdutosPage() {
               </tr>
             </thead>
             <tbody>
-              {itens.map((item) => {
+              {itens.filter(i => parseFloat(i.qtdConf) < parseFloat(i.qtdPed)).sort((a, b) => {
+                // Parciais primeiro (qtdConf > 0), depois pendentes (qtdConf = 0)
+                const confA = parseFloat(a.qtdConf);
+                const confB = parseFloat(b.qtdConf);
+                if (confA > 0 && confB === 0) return -1;
+                if (confA === 0 && confB > 0) return 1;
+                return 0;
+              }).map((item) => {
                 const qtdPed = parseFloat(item.qtdPed);
                 const qtdConf = parseFloat(item.qtdConf);
-                const completo = qtdConf >= qtdPed;
                 const parcial = qtdConf > 0 && qtdConf < qtdPed;
 
                 return (
-                  <tr key={item.codProd} className={completo ? 'row-ok' : parcial ? 'row-parcial' : ''}>
+                  <tr key={item.sequencia} className={parcial ? 'row-parcial' : ''}>
                     <td>
                       <div className="produto-cell">
-                        <span className="produto-desc">{item.descrProd || `Cod ${item.codProd}`}</span>
-                        <span className="produto-barra">{item.codBarra || item.referencia || '-'}</span>
+                        <img
+                          src={`/api/crud/produto/${item.codProd}/imagem`}
+                          alt={item.descrProd || ''}
+                          className="produto-img"
+                          onClick={() => setImagemAmpliada(`/api/crud/produto/${item.codProd}/imagem`)}
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                        <div>
+                          <span className="produto-desc">{item.descrProd || `Cod ${item.codProd}`}</span>
+                          <span className="produto-barra">{item.codProd} | {item.codBarra || '-'} | Ref: {item.referencia || '-'}</span>
+                        </div>
                       </div>
                     </td>
                     <td className="num-cell">{qtdPed}</td>
                     <td className="num-cell">{qtdConf}</td>
                     <td>
-                      {completo && <span className="status-ok">OK</span>}
                       {parcial && <span className="status-parcial">Parcial</span>}
-                      {!completo && !parcial && <span className="status-pendente">—</span>}
+                      {!parcial && <span className="status-pendente">—</span>}
                     </td>
                   </tr>
                 );
@@ -190,14 +219,95 @@ export function ConferenciaProdutosPage() {
         </Container>
       </Painel>
 
-      {/* Ação finalizar */}
-      <Painel>
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <Botao variant="success" size="lg" onClick={handleFinalizar} disabled={loading}>
-            Finalizar Conferência
-          </Botao>
+      {/* Itens conferidos */}
+      {itens.filter(i => parseFloat(i.qtdConf) > 0).length > 0 && (
+        <Painel titulo="Itens Conferidos" subtitulo={`${itens.filter(i => parseFloat(i.qtdConf) > 0).length} com conferência`}>
+          <Container variant="outlined" padding="none">
+            <table className="tabela-itens">
+              <thead>
+                <tr>
+                  <th>Produto</th>
+                  <th>Pedido</th>
+                  <th>Conferido</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {itens.filter(i => parseFloat(i.qtdConf) > 0).sort((a, b) => {
+                  // OK (completos) primeiro, depois parciais
+                  const completoA = parseFloat(a.qtdConf) >= parseFloat(a.qtdPed) ? 1 : 0;
+                  const completoB = parseFloat(b.qtdConf) >= parseFloat(b.qtdPed) ? 1 : 0;
+                  return completoB - completoA;
+                }).map((item) => {
+                  const qtdPed = parseFloat(item.qtdPed);
+                  const qtdConf = parseFloat(item.qtdConf);
+                  const completo = qtdConf >= qtdPed;
+
+                  return (
+                    <tr key={item.sequencia} className={completo ? 'row-ok' : 'row-parcial'}>
+                      <td>
+                        <div className="produto-cell">
+                          <img
+                            src={`/api/crud/produto/${item.codProd}/imagem`}
+                            alt={item.descrProd || ''}
+                            className="produto-img"
+                            onClick={() => setImagemAmpliada(`/api/crud/produto/${item.codProd}/imagem`)}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                          <div>
+                            <span className="produto-desc">{item.descrProd || `Cod ${item.codProd}`}</span>
+                            <span className="produto-barra">{item.codProd} | {item.codBarra || '-'} | Ref: {item.referencia || '-'}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="num-cell">{qtdPed}</td>
+                      <td className="num-cell">{qtdConf}</td>
+                      <td>
+                        {completo ? <span className="status-ok">OK</span> : <span className="status-parcial">Parcial</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Container>
+        </Painel>
+      )}
+
+      {/* Modal finalizar */}
+      {showFinalizarModal && (
+        <div className="modal-overlay" onClick={() => setShowFinalizarModal(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">Finalizar Conferência</h2>
+            <p className="modal-subtitle">Informe a quantidade de volumes para este pedido.</p>
+            <div style={{ margin: '20px 0' }}>
+              <Campo
+                label="Quantidade de Volumes"
+                type="number"
+                value={qtdVolumes}
+                onChange={(e) => setQtdVolumes(e.target.value)}
+                min="0"
+                autoFocus
+              />
+            </div>
+            <div className="modal-actions">
+              <Botao variant="secondary" size="md" onClick={() => setShowFinalizarModal(false)}>
+                Cancelar
+              </Botao>
+              <Botao variant="success" size="md" onClick={handleFinalizar} loading={loading}>
+                Confirmar
+              </Botao>
+            </div>
+          </div>
         </div>
-      </Painel>
+      )}
+
+      {/* Modal imagem ampliada */}
+      {imagemAmpliada && (
+        <div className="img-modal-overlay" onClick={() => setImagemAmpliada(null)}>
+          <img src={imagemAmpliada} alt="Produto" className="img-modal" />
+        </div>
+      )}
     </div>
   );
 }

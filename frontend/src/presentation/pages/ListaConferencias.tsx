@@ -80,7 +80,7 @@ export function ListaConferenciasPage() {
                     <span className="card-nunota">#{pedido.nunota}</span>
                     <span className="card-parceiro">{pedido.parceiro}</span>
                   </div>
-                  <span className={`status-badge ${pedido.statusConferencia === 'Em andamento' ? 'badge-warning' : 'badge-pending'}`}>
+                  <span className={`status-badge ${pedido.statusConferencia === 'Em andamento' ? 'badge-warning' : pedido.statusConferencia.toLowerCase().includes('recontagem') ? 'badge-danger' : 'badge-pending'}`}>
                     {pedido.statusConferencia}
                   </span>
                 </div>

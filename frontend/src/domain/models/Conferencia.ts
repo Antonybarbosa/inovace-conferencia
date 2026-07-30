@@ -19,6 +19,7 @@ export interface PedidoConferencia {
 
 export interface ItemPedido {
   codProd: string;
+  sequencia: string;
   descrProd: string | null;
   codBarra: string | null;
   referencia: string | null;

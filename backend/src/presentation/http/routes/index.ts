@@ -23,6 +23,9 @@ export function registerRoutes(app: Application, controllers: RouteControllers, 
   // Rotas públicas
   app.use('/auth', createAuthRoutes(controllers.authController));
 
+  // Imagem de produto (pública — usada por tags <img>)
+  app.get('/api/crud/produto/:codProd/imagem', (req, res) => controllers.crudController.produtoImagem(req, res));
+
   // Rotas protegidas
   app.use('/api/conferencias', authMiddleware, createConferenciasRoutes(controllers.conferenciasController));
   app.use('/api/crud', authMiddleware, createCrudRoutes(controllers.crudController));
