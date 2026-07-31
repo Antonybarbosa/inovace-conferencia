@@ -14,9 +14,10 @@ services:
     build: ./frontend
     container_name: conferencia-frontend
     ports:
-      # Porta do host configurável: defina FRONTEND_PORT no .env da raiz
-      # se a 80 já estiver ocupada (ex.: FRONTEND_PORT=8080)
-      - "${FRONTEND_PORT:-80}:80"
+      # Porta do host. Padrão 8080 porque no servidor de deploy a 80 é ocupada
+      # por outro serviço (Zabbix). Para mudar, defina FRONTEND_PORT no .env
+      # da raiz — mas não dependa disso: o default já é a porta que funciona.
+      - "${FRONTEND_PORT:-8080}:80"
     depends_on:
       - backend
     restart: unless-stopped

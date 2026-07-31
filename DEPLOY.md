@@ -131,13 +131,13 @@ Dois arquivos distintos, **ambos no `.gitignore`** (não vêm no clone e
 sobrevivem a `git pull`):
 
 ```bash
-# 1) Credenciais do backend — obrigatório, o compose falha sem ele
+# Credenciais do backend — obrigatório, o compose falha sem ele
 cp backend/.env.example backend/.env
 nano backend/.env
-
-# 2) Porta do frontend — só se a 80 estiver ocupada
-echo "FRONTEND_PORT=8080" > .env
 ```
+
+O `.env` da raiz (porta do frontend) é opcional: o default de 8080 já atende
+este servidor. Só crie se quiser outra porta.
 
 ### 4.4 Subir
 
@@ -177,10 +177,11 @@ como falha nas chamadas ao Sankhya. Vale conferir o log após o primeiro `up`.
 
 | Variável | Padrão | Uso |
 |---|---|---|
-| `FRONTEND_PORT` | `80` | Porta do host que publica a SPA |
+| `FRONTEND_PORT` | `8080` | Porta do host que publica a SPA |
 
 Consumida por substituição de variável do Compose, não entra em nenhum
-container.
+container. O arquivo é **opcional**: o default de 8080 já é a porta que
+funciona neste servidor, justamente para o deploy não depender dele.
 
 ---
 
@@ -222,14 +223,13 @@ sudo ufw allow 8080/tcp
 ```bash
 cd /opt/conferencia
 git pull
+docker-compose down
 docker-compose up -d --build
 ```
 
-Se só o frontend mudou, dá para poupar tempo:
-
-```bash
-docker-compose up -d --build frontend
-```
+O `down` antes do `up` é recomendado: sem ele o Compose v1 pode reaproveitar um
+container antigo com configuração obsoleta, como aconteceu no caso 8.2.1. São
+poucos segundos de indisponibilidade e evita diagnóstico desnecessário.
 
 Os arquivos `.env` não são tocados pelo `git pull`.
 
@@ -329,6 +329,53 @@ a variável explicitamente, que aí o default não é usado.
 **Aprendizado** `Exit 128` no Compose costuma indicar falha ao **criar** o
 container, não erro da aplicação. Nesses casos `docker logs` vem vazio e o
 diagnóstico está em `docker inspect ... .State.Error`.
+
+### 8.2.1 Reincidência: `Cannot restart container ... Bind for 0.0.0.0:80 failed`
+
+**Sintoma** Depois de um `git pull`, o frontend voltou a falhar tentando a
+porta 80, mesmo com `FRONTEND_PORT=8080` já configurado antes:
+
+```
+ERROR: for conferencia-frontend  Cannot restart container 70e55fc7...:
+Bind for 0.0.0.0:80 failed: port is already allocated
+```
+
+**Causa** A palavra **restart** na mensagem é a pista. O Compose não recriou o
+container, tentou reaproveitar o existente, que tinha `80:80` gravado desde a
+primeira tentativa. Isso acontece quando a substituição de `FRONTEND_PORT` não
+resolve: o Compose calcula 80, esse valor coincide com a configuração do
+container antigo, ele conclui que nada mudou e apenas dá restart no container
+velho. Ou seja, o `.env` da raiz deixou de ser lido — arquivo ausente, ou
+comando rodado fora de `/opt/conferencia`.
+
+**Diagnóstico**
+
+```bash
+cd /opt/conferencia
+cat .env                # o arquivo existe? tem FRONTEND_PORT?
+docker-compose config   # mostra o YAML com as variáveis já substituídas
+```
+
+Se `docker-compose config` exibir `- 80:80`, a variável não está chegando.
+
+**Solução** Duas mudanças, uma imediata e uma definitiva.
+
+Imediata: forçar a remoção do container velho, para o Compose criar um novo com
+a configuração atual em vez de reciclar o antigo.
+
+```bash
+docker-compose down
+docker-compose up -d --build
+```
+
+Definitiva: o default do compose passou a ser **8080** em vez de 80. Como neste
+servidor a 80 é permanentemente do Zabbix, defaultar para 80 só criava
+armadilha. Agora o deploy funciona mesmo que o `.env` da raiz não exista.
+
+**Aprendizado** `docker-compose down` antes do `up` resolve toda a classe de
+problemas de container reciclado com configuração obsoleta. E `docker-compose
+config` é a forma mais rápida de ver o que o Compose realmente entendeu, em vez
+de deduzir pelo erro.
 
 ### 8.3 Build do frontend quebrado por erro de tipo
 
