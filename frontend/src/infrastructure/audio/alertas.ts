@@ -101,26 +101,41 @@ export function vibrarErro(): void {
   }
 }
 
+/** Resolve um CODPROD para a descrição do produto, quando conhecida */
+export type ResolverProduto = (codProd: string) => string | undefined | null;
+
 /**
  * Transforma a mensagem crua do Sankhya em algo que faça sentido ouvido.
  *
  * Entrada:
  *   "[Sankhya ConferenciaSP.salvarItemConferido] Quantidade conferida maior do
  *    que quantidade negociada no pedido/nota. (Produto: 11321)"
- * Saída:
- *   "Quantidade conferida maior do que quantidade negociada no pedido/nota.
- *    Produto 1 1 3 2 1"
+ *
+ * Saída com resolvedor (produto está na lista do pedido):
+ *   "Quantidade conferida maior do que quantidade negociada no pedido.
+ *    Produto PARAFUSO SEXTAVADO 1/2"
+ *
+ * Saída sem resolvedor, ou produto desconhecido (ex.: item fora do pedido):
+ *   "... Produto 1 1 3 2 1"   ← dígito a dígito, para conferir na etiqueta
+ *
+ * @param mensagem Texto retornado pelo Sankhya
+ * @param resolverProduto Busca a descrição pelo CODPROD (opcional)
  */
-export function prepararTextoParaFala(mensagem: string): string {
+export function prepararTextoParaFala(
+  mensagem: string,
+  resolverProduto?: ResolverProduto,
+): string {
   return mensagem
     // Remove o prefixo técnico entre colchetes (nome do serviço Sankhya)
     .replace(/^\s*\[[^\]]*\]\s*/, '')
-    // Código do produto dígito a dígito: "11321" falado como "onze mil
-    // trezentos e vinte e um" não ajuda quem procura a etiqueta na caixa
-    .replace(
-      /\(?\s*Produto:\s*(\d+)\s*\)?/gi,
-      (_todo, codigo: string) => `Produto ${codigo.split('').join(' ')}`,
-    )
+    // Troca o código pelo nome do produto. Sem nome disponível, fala dígito a
+    // dígito: "onze mil trezentos e vinte e um" não ajuda quem procura a
+    // etiqueta na caixa.
+    .replace(/\(?\s*Produto:\s*(\d+)\s*\)?/gi, (_todo, codigo: string) => {
+      const descricao = resolverProduto?.(codigo)?.trim();
+      if (descricao) return `Produto ${descricao}`;
+      return `Produto ${codigo.split('').join(' ')}`;
+    })
     // "pedido/nota" é lido como "pedido barra nota" por algumas vozes
     .replace(/pedido\/nota/gi, 'pedido')
     .replace(/\s+/g, ' ')
@@ -170,14 +185,15 @@ export function falar(texto: string): void {
  * Alerta de erro: bipe de atenção, vibração e leitura da mensagem.
  *
  * @param mensagem Texto retornado pelo Sankhya. Se omitido, só bipa.
+ * @param resolverProduto Traduz o CODPROD da mensagem para o nome do produto
  */
-export function tocarAlertaErro(mensagem?: string): void {
+export function tocarAlertaErro(mensagem?: string, resolverProduto?: ResolverProduto): void {
   tocarBipeErro();
   vibrarErro();
 
   if (!mensagem) return;
 
-  const texto = prepararTextoParaFala(mensagem);
+  const texto = prepararTextoParaFala(mensagem, resolverProduto);
   if (!texto) return;
 
   // Espera o bipe terminar (~0,48 s) para a voz não competir com ele

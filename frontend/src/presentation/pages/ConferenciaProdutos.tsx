@@ -72,7 +72,13 @@ export function ConferenciaProdutosPage() {
       // Fica no catch (e não num useEffect sobre `error`) porque, se o
       // operador repetir a mesma leitura, a string de erro não muda e o
       // efeito não voltaria a disparar.
-      tocarAlertaErro(err instanceof Error ? err.message : undefined);
+      tocarAlertaErro(
+        err instanceof Error ? err.message : undefined,
+        // O Sankhya devolve só o CODPROD na mensagem. Traduz para a descrição
+        // usando a lista já carregada do pedido. Produto fora do pedido não é
+        // encontrado aqui e a fala cai no código dígito a dígito.
+        (codProd) => itens.find((i) => String(i.codProd) === codProd)?.descrProd,
+      );
     }
     finally { setConferindo(false); }
   }
