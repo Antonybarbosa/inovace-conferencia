@@ -16,6 +16,11 @@ interface FiltrosDinamicosProps<T extends object> {
   onFiltrar: (filtrados: T[]) => void;
   /** Campos que devem ser exibidos como filtros. Se não informado, gera automaticamente. */
   camposVisiveis?: CampoFiltro[];
+  /**
+   * Classe extra no container. Use `filtros-container--inline` para encaixar o
+   * botão de filtros numa barra já existente, junto de outros controles.
+   */
+  className?: string;
 }
 
 /** Labels amigáveis para campos conhecidos */
@@ -55,6 +60,7 @@ export function FiltrosDinamicos<T extends object>({
   dados,
   onFiltrar,
   camposVisiveis,
+  className = '',
 }: FiltrosDinamicosProps<T>) {
   const [filtros, setFiltros] = useState<Record<string, string>>({});
   const [aberto, setAberto] = useState(false);
@@ -109,7 +115,7 @@ export function FiltrosDinamicos<T extends object>({
   const temFiltroAtivo = Object.values(filtros).some(v => v !== '');
 
   return (
-    <div className="filtros-container">
+    <div className={`filtros-container ${className}`}>
       <div className="filtros-header">
         <Botao
           variant={temFiltroAtivo ? 'primary' : 'secondary'}

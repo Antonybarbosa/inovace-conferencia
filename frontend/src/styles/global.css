@@ -442,6 +442,69 @@ body {
   border-radius: var(--radius);
 }
 
+/* Linha única com Atualizar + botão de filtros + contagem */
+.toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Empurra a contagem para a direita da linha */
+.toolbar-contador {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════
+   CONTADORES POR STATUS
+   ═══════════════════════════════════════ */
+.status-contadores {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--slate-200);
+}
+
+.status-contador {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 24px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.status-contador:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.status-contador-num {
+  font-size: 0.85rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+/* Selecionado: inverte para indicar que a lista está filtrada por ele */
+.status-contador--ativo {
+  box-shadow: 0 0 0 2px currentColor inset;
+  filter: saturate(1.4);
+}
+
+.status-contador:focus-visible {
+  outline: 2px solid var(--orange-500);
+  outline-offset: 2px;
+}
+
 /* ═══════════════════════════════════════
    CARDS DE CONFERENCIA (LISTA)
    ═══════════════════════════════════════ */

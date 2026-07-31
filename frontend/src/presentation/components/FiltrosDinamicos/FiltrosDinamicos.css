@@ -139,3 +139,25 @@
 .filtro-tag-remove:hover {
   color: var(--rose-500);
 }
+
+/* ═══════════════════════════════════════
+   MODO INLINE
+   Encaixa o filtro numa barra já existente. `display: contents` faz o
+   container não gerar caixa própria, então o header vira item direto do flex
+   do pai e o botão fica na mesma linha dos outros controles.
+   ═══════════════════════════════════════ */
+.filtros-container--inline {
+  display: contents;
+}
+
+.filtros-container--inline .filtros-header {
+  margin-bottom: 0;
+}
+
+/* O painel aberto ocupa a largura toda e vai sempre para a última linha,
+   para não empurrar a contagem que fica à direita da barra. */
+.filtros-container--inline .filtros-grid {
+  flex-basis: 100%;
+  order: 99;
+  margin-top: 4px;
+}

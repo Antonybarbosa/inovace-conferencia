@@ -5,12 +5,20 @@ import { Botao, Container, Painel, Label } from '../components';
 import { FiltrosDinamicos } from '../components/FiltrosDinamicos/FiltrosDinamicos';
 import { Loading } from '../components/Loading/Loading';
 import { PedidoConferencia } from '../../domain/models/Conferencia';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+
+/** Cor do badge conforme o status, usada no card e nos contadores */
+function classeStatus(status: string): string {
+  if (status === 'Em andamento') return 'badge-warning';
+  if (status.toLowerCase().includes('recontagem')) return 'badge-danger';
+  return 'badge-pending';
+}
 
 export function ListaConferenciasPage() {
   const { user, logout } = useAuth();
   const { pedidos, loading, error, recarregar } = useConferencias();
   const [pedidosFiltrados, setPedidosFiltrados] = useState<PedidoConferencia[]>([]);
+  const [statusSelecionado, setStatusSelecionado] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const mensagemSucesso = (location.state as any)?.mensagem || null;
@@ -18,6 +26,30 @@ export function ListaConferenciasPage() {
   useEffect(() => {
     setPedidosFiltrados(pedidos);
   }, [pedidos]);
+
+  // Contagem por status. Calculada sobre o resultado dos FiltrosDinamicos (e não
+  // sobre o total) para os números refletirem o que está de fato disponível na
+  // lista. Não considera o status selecionado, senão os outros zerariam.
+  const contagemPorStatus = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const pedido of pedidosFiltrados) {
+      const status = pedido.statusConferencia || 'Sem status';
+      mapa.set(status, (mapa.get(status) ?? 0) + 1);
+    }
+    // Maior primeiro, e desempate alfabético para a ordem não dançar entre renders
+    return [...mapa.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [pedidosFiltrados]);
+
+  // Lista final: resultado dos filtros dinâmicos + o status clicado.
+  // Encadear aqui, em vez de mexer no estado interno do FiltrosDinamicos,
+  // evita as duas fontes de filtro brigarem entre si.
+  const pedidosVisiveis = useMemo(
+    () =>
+      statusSelecionado
+        ? pedidosFiltrados.filter((p) => (p.statusConferencia || 'Sem status') === statusSelecionado)
+        : pedidosFiltrados,
+    [pedidosFiltrados, statusSelecionado],
+  );
 
   function handleAbrirConferencia(nunota: number) {
     navigate(`/conferencias/${nunota}`);
@@ -34,14 +66,52 @@ export function ListaConferenciasPage() {
         </div>
       </header>
 
-      {/* Toolbar */}
+      {/* Toolbar: atualizar + filtros + contagem + contadores por status */}
       <Container variant="default" padding="sm" className="toolbar-container">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="toolbar-row">
           <Botao variant="secondary" size="sm" onClick={recarregar} loading={loading}>
             Atualizar
           </Botao>
-          <Label variant="caption">{pedidosFiltrados.length} de {pedidos.length} pedidos</Label>
+
+          {!loading && (
+            <FiltrosDinamicos
+              dados={pedidos}
+              onFiltrar={setPedidosFiltrados}
+              className="filtros-container--inline"
+            />
+          )}
+
+          <Label variant="caption" className="toolbar-contador">
+            {pedidosVisiveis.length} de {pedidos.length} pedidos
+          </Label>
         </div>
+
+        {contagemPorStatus.length > 0 && (
+          <div className="status-contadores">
+            {contagemPorStatus.map(([status, total]) => {
+              const ativo = statusSelecionado === status;
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  className={`status-contador ${classeStatus(status)} ${ativo ? 'status-contador--ativo' : ''}`}
+                  onClick={() => setStatusSelecionado(ativo ? null : status)}
+                  aria-pressed={ativo}
+                  title={ativo ? 'Clique para remover o filtro' : `Mostrar só ${status}`}
+                >
+                  <span className="status-contador-num">{total}</span>
+                  <span className="status-contador-txt">{status}</span>
+                </button>
+              );
+            })}
+
+            {statusSelecionado && (
+              <Botao variant="ghost" size="sm" onClick={() => setStatusSelecionado(null)}>
+                Ver todos
+              </Botao>
+            )}
+          </div>
+        )}
       </Container>
 
       {/* Mensagem de sucesso */}
@@ -55,19 +125,11 @@ export function ListaConferenciasPage() {
       {/* Loading */}
       {loading && <Loading mensagem="Carregando conferências..." />}
 
-      {/* Filtros dinâmicos */}
-      {!loading && (
-        <FiltrosDinamicos
-          dados={pedidos}
-          onFiltrar={setPedidosFiltrados}
-        />
-      )}
-
       {/* Lista */}
       {!loading && (
         <Painel titulo="Pedidos Pendentes" className="lista-painel">
         <div className="lista-conferencias">
-          {pedidosFiltrados.map((pedido) => (
+          {pedidosVisiveis.map((pedido) => (
             <Container
               key={pedido.nunota}
               variant="outlined"
@@ -87,7 +149,7 @@ export function ListaConferenciasPage() {
                     <span className="card-nunota">#{pedido.nunota}</span>
                     <span className="card-parceiro">{pedido.parceiro}</span>
                   </div>
-                  <span className={`status-badge ${pedido.statusConferencia === 'Em andamento' ? 'badge-warning' : pedido.statusConferencia.toLowerCase().includes('recontagem') ? 'badge-danger' : 'badge-pending'}`}>
+                  <span className={`status-badge ${classeStatus(pedido.statusConferencia)}`}>
                     {pedido.statusConferencia}
                   </span>
                 </div>
@@ -111,9 +173,13 @@ export function ListaConferenciasPage() {
             </Container>
           ))}
 
-          {!loading && pedidosFiltrados.length === 0 && (
+          {!loading && pedidosVisiveis.length === 0 && (
             <div className="empty-state">
-              <p>Nenhum pedido pendente de conferência</p>
+              <p>
+                {statusSelecionado
+                  ? `Nenhum pedido com status "${statusSelecionado}"`
+                  : 'Nenhum pedido pendente de conferência'}
+              </p>
             </div>
           )}
         </div>
