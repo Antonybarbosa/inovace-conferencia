@@ -1,5 +1,11 @@
 import { IGatewayPort } from '../../../domain/ports/IGatewayPort.js';
 import { ITokenPort } from '../../../domain/ports/ITokenPort.js';
+import {
+  CredenciaisInvalidasError,
+  DadosInvalidosError,
+  SankhyaErroError,
+} from '../../../domain/errors/AppError.js';
+import { classificarErroGateway } from '../../../infrastructure/gateway/classificarErroGateway.js';
 
 export interface LoginSankhyaInput {
   usuario: string;
@@ -27,26 +33,45 @@ export class LoginSankhyaUseCase {
 
   async execute(input: LoginSankhyaInput, correlationId?: string): Promise<LoginSankhyaOutput> {
     if (!input.usuario || !input.senha) {
-      throw new Error('Usuário e senha são obrigatórios');
+      throw new DadosInvalidosError('Informe usuário e senha');
     }
 
     // 1. Autenticar no Sankhya via MobileLoginSP
-    const response = await this.gateway.serviceCall<any>(
-      'MobileLoginSP.login',
-      {
-        serviceName: 'MobileLoginSP.login',
-        requestBody: {
-          NOMUSU: { $: input.usuario },
-          INTERNO: { $: input.senha },
+    let response;
+    try {
+      response = await this.gateway.serviceCall<any>(
+        'MobileLoginSP.login',
+        {
+          serviceName: 'MobileLoginSP.login',
+          requestBody: {
+            NOMUSU: { $: input.usuario },
+            INTERNO: { $: input.senha },
+          },
         },
-      },
-      correlationId,
-    );
+        correlationId,
+      );
+    } catch (erro) {
+      const classificado = classificarErroGateway(erro);
+
+      // O MobileLoginSP sinaliza senha errada como erro de negócio. Sem esta
+      // tradução, credencial inválida chegaria ao usuário como falha do
+      // Sankhya, escondendo a causa real.
+      if (
+        classificado instanceof SankhyaErroError &&
+        /senha|usu[áa]rio|login|inv[áa]lid|incorret|n[ãa]o autorizado|autentica/i.test(
+          classificado.message,
+        )
+      ) {
+        throw new CredenciaisInvalidasError();
+      }
+
+      throw classificado;
+    }
 
     const body = response.responseBody;
 
     if (!body?.idusu?.$) {
-      throw new Error('Credenciais inválidas');
+      throw new CredenciaisInvalidasError();
     }
 
     // 2. Decodar CODUSU (vem em Base64)
@@ -54,7 +79,7 @@ export class LoginSankhyaUseCase {
     const codUsu = parseInt(Buffer.from(codUsuBase64, 'base64').toString('utf-8'), 10);
 
     if (isNaN(codUsu)) {
-      throw new Error('Erro ao decodificar ID do usuário');
+      throw new SankhyaErroError('O Sankhya devolveu um ID de usuário inválido');
     }
 
     const jsessionid = body.jsessionid?.$ || '';

@@ -34,8 +34,15 @@ httpClient.interceptors.response.use(
       return Promise.reject(networkError);
     }
 
-    // Token expirado ou inválido
-    if (error.response.status === 401) {
+    // Token expirado ou inválido → volta para o login.
+    //
+    // A própria chamada de login é exceção: ali o 401 significa "senha
+    // errada", e recarregar a página apagaria a mensagem de erro antes do
+    // usuário conseguir ler.
+    const url = error.config?.url ?? '';
+    const ehTentativaDeLogin = url.includes('/auth/sankhya-login') || url.includes('/auth/login');
+
+    if (error.response.status === 401 && !ehTentativaDeLogin) {
       localStorage.removeItem(TOKEN_KEY);
       window.location.href = '/login';
     }

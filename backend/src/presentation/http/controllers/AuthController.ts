@@ -3,6 +3,7 @@ import { LoginUseCase } from '../../../application/use-cases/auth/LoginUseCase.j
 import { LoginSankhyaUseCase } from '../../../application/use-cases/auth/LoginSankhyaUseCase.js';
 import { LogoutUseCase } from '../../../application/use-cases/auth/LogoutUseCase.js';
 import { ValidateSessionUseCase } from '../../../application/use-cases/auth/ValidateSessionUseCase.js';
+import { AppError } from '../../../domain/errors/AppError.js';
 
 /**
  * Controller de Autenticação
@@ -33,9 +34,22 @@ export class AuthController {
       const { usuario, senha } = req.body;
       const result = await this.loginSankhyaUseCase.execute({ usuario, senha });
       res.status(200).json(result);
-    } catch (error: any) {
-      const status = error.message.includes('obrigatórios') ? 400 : 401;
-      res.status(status).json({ error: error.message });
+    } catch (error: unknown) {
+      // Cada tipo de falha tem seu próprio status e código, para o frontend
+      // poder dizer ao usuário se o problema é a senha dele ou o Sankhya.
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          error: error.message,
+          codigo: error.codigo,
+        });
+        return;
+      }
+
+      console.error('[AuthController] Erro não classificado no login:', error);
+      res.status(500).json({
+        error: 'Erro inesperado ao processar o login',
+        codigo: 'ERRO_INTERNO',
+      });
     }
   }
 

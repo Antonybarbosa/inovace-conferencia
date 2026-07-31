@@ -311,6 +311,29 @@ body {
   font-size: 0.9rem;
 }
 
+/* Bloco de erro do login. Fica acima do botão, com espaço para mensagens
+   longas como "Sankhya fora do ar" ou "credencial de integração inválida". */
+.login-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: var(--rose-500);
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.45;
+  animation: slideIn 0.25s ease;
+}
+
+.login-error svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
 @media (max-width: 768px) {
   .login-wrapper { grid-template-columns: 1fr; max-width: 420px; }
   .login-panel-dark { display: none; }
