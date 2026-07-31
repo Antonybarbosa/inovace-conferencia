@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useConferenciaAtiva } from '../../application/hooks/useConferenciaAtiva';
+import { useAuth } from '../../application/contexts/AuthContext';
+import { podeVerCamposSensiveis } from '../../domain/permissions';
 import { Botao, Campo, Container, Grid, Label, Painel } from '../components';
 import { Loading } from '../components/Loading/Loading';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
@@ -9,6 +11,8 @@ export function ConferenciaProdutosPage() {
   const { nunota } = useParams<{ nunota: string }>();
   const navigate = useNavigate();
   const nuNotaNum = parseInt(nunota || '0', 10);
+  const { user } = useAuth();
+  const verCamposSensiveis = podeVerCamposSensiveis(user?.nomeUsu);
 
   const {
     conferencia,
@@ -227,7 +231,7 @@ export function ConferenciaProdutosPage() {
             <thead>
               <tr>
                 <th>Produto</th>
-                <th>Pedido</th>
+                {verCamposSensiveis && <th>Pedido</th>}
                 <th>Conferido</th>
                 <th>Status</th>
               </tr>
@@ -258,11 +262,15 @@ export function ConferenciaProdutosPage() {
                         />
                         <div>
                           <span className="produto-desc">{item.descrProd || `Cod ${item.codProd}`}</span>
-                          <span className="produto-barra">{item.codProd} | {item.codBarra || '-'} | Ref: {item.referencia || '-'}</span>
+                          <span className="produto-barra">
+                            {verCamposSensiveis
+                              ? `${item.codProd} | ${item.codBarra || '-'} | Ref: ${item.referencia || '-'}`
+                              : item.codProd}
+                          </span>
                         </div>
                       </div>
                     </td>
-                    <td className="num-cell">{qtdPed}</td>
+                    {verCamposSensiveis && <td className="num-cell">{qtdPed}</td>}
                     <td className="num-cell">{qtdConf}</td>
                     <td>
                       {parcial && <span className="status-parcial">Parcial</span>}
@@ -285,7 +293,7 @@ export function ConferenciaProdutosPage() {
               <thead>
                 <tr>
                   <th>Produto</th>
-                  <th>Pedido</th>
+                  {verCamposSensiveis && <th>Pedido</th>}
                   <th>Conferido</th>
                   <th>Status</th>
                 </tr>
@@ -314,11 +322,15 @@ export function ConferenciaProdutosPage() {
                           />
                           <div>
                             <span className="produto-desc">{item.descrProd || `Cod ${item.codProd}`}</span>
-                            <span className="produto-barra">{item.codProd} | {item.codBarra || '-'} | Ref: {item.referencia || '-'}</span>
+                            <span className="produto-barra">
+                              {verCamposSensiveis
+                                ? `${item.codProd} | ${item.codBarra || '-'} | Ref: ${item.referencia || '-'}`
+                                : item.codProd}
+                            </span>
                           </div>
                         </div>
                       </td>
-                      <td className="num-cell">{qtdPed}</td>
+                      {verCamposSensiveis && <td className="num-cell">{qtdPed}</td>}
                       <td className="num-cell">{qtdConf}</td>
                       <td>
                         {completo ? <span className="status-ok">OK</span> : <span className="status-parcial">Parcial</span>}

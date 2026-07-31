@@ -11,7 +11,7 @@ interface CampoFiltro {
   opcoes?: string[];
 }
 
-interface FiltrosDinamicosProps<T extends Record<string, unknown>> {
+interface FiltrosDinamicosProps<T extends object> {
   dados: T[];
   onFiltrar: (filtrados: T[]) => void;
   /** Campos que devem ser exibidos como filtros. Se não informado, gera automaticamente. */
@@ -51,7 +51,7 @@ function detectarTipo(key: string, valores: unknown[]): 'texto' | 'numero' | 'st
   return 'texto';
 }
 
-export function FiltrosDinamicos<T extends Record<string, unknown>>({
+export function FiltrosDinamicos<T extends object>({
   dados,
   onFiltrar,
   camposVisiveis,
@@ -67,7 +67,7 @@ export function FiltrosDinamicos<T extends Record<string, unknown>>({
     const keys = Object.keys(dados[0]).filter(k => !CAMPOS_OCULTOS.includes(k));
 
     return keys.map(key => {
-      const valores = dados.map(d => d[key]);
+      const valores = dados.map(d => (d as Record<string, unknown>)[key]);
       const tipo = detectarTipo(key, valores);
       const opcoes = tipo === 'status'
         ? [...new Set(valores.filter(v => v !== null).map(String))]
@@ -87,7 +87,7 @@ export function FiltrosDinamicos<T extends Record<string, unknown>>({
     const filtrados = dados.filter(item => {
       return Object.entries(novosFiltros).every(([key, valor]) => {
         if (!valor || valor === '') return true;
-        const campo = item[key];
+        const campo = (item as Record<string, unknown>)[key];
         if (campo === null || campo === undefined) return false;
         return String(campo).toLowerCase().includes(valor.toLowerCase());
       });
