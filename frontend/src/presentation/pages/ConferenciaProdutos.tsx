@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useConferenciaAtiva } from '../../application/hooks/useConferenciaAtiva';
 import { useAuth } from '../../application/contexts/AuthContext';
 import { podeVerCamposSensiveis } from '../../domain/permissions';
+import { tocarAlertaErro } from '../../infrastructure/audio/alertas';
 import { Botao, Campo, Container, Grid, Label, Painel } from '../components';
 import { Loading } from '../components/Loading/Loading';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
@@ -56,7 +57,13 @@ export function ConferenciaProdutosPage() {
       setCodBarra('');
       setQuantidade('1');
       inputRef.current?.focus();
-    } catch { /* hook trata */ }
+    } catch {
+      // O hook já preenche a mensagem de erro na tela; aqui só o alerta.
+      // Fica no catch (e não num useEffect sobre `error`) porque, se o
+      // operador repetir a mesma leitura, a string de erro não muda e o
+      // efeito não voltaria a disparar.
+      tocarAlertaErro();
+    }
     finally { setConferindo(false); }
   }
 
@@ -69,7 +76,13 @@ export function ConferenciaProdutosPage() {
       setCodBarra('');
       setQuantidade('1');
       inputRef.current?.focus();
-    } catch { /* hook trata */ }
+    } catch {
+      // O hook já preenche a mensagem de erro na tela; aqui só o alerta.
+      // Fica no catch (e não num useEffect sobre `error`) porque, se o
+      // operador repetir a mesma leitura, a string de erro não muda e o
+      // efeito não voltaria a disparar.
+      tocarAlertaErro();
+    }
     finally { setConferindo(false); }
   }
 
