@@ -14,7 +14,9 @@ services:
     build: ./frontend
     container_name: conferencia-frontend
     ports:
-      - "80:80"
+      # Porta do host configurável: defina FRONTEND_PORT no .env da raiz
+      # se a 80 já estiver ocupada (ex.: FRONTEND_PORT=8080)
+      - "${FRONTEND_PORT:-80}:80"
     depends_on:
       - backend
     restart: unless-stopped
