@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useConferenciaAtiva } from '../../application/hooks/useConferenciaAtiva';
 import { useAuth } from '../../application/contexts/AuthContext';
 import { podeVerCamposSensiveis } from '../../domain/permissions';
-import { tocarAlertaErro } from '../../infrastructure/audio/alertas';
+import { prepararAudio, tocarAlertaErro } from '../../infrastructure/audio/alertas';
 import { Botao, Campo, Container, Grid, Label, Painel } from '../components';
 import { Loading } from '../components/Loading/Loading';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
@@ -47,9 +47,18 @@ export function ConferenciaProdutosPage() {
     if (conferencia && inputRef.current) inputRef.current.focus();
   }, [conferencia]);
 
-  async function handleBuscarProduto(e: FormEvent) {
-    e.preventDefault();
+  /**
+   * Fluxo único de conferência, usado pelo Enter no campo e pelo botão.
+   * Mantido em um só lugar para os dois caminhos não divergirem.
+   */
+  async function executarConferencia() {
     if (!codBarra.trim() || conferindo) return;
+
+    // Destrava o áudio ainda dentro do gesto do usuário, antes de qualquer
+    // await. Depois do await a ativação já expirou e o Chrome mantém o
+    // AudioContext suspenso, deixando o alerta mudo.
+    prepararAudio();
+
     setConferindo(true);
     try {
       const qtd = parseFloat(quantidade).toFixed(9);
@@ -57,33 +66,24 @@ export function ConferenciaProdutosPage() {
       setCodBarra('');
       setQuantidade('1');
       inputRef.current?.focus();
-    } catch {
-      // O hook já preenche a mensagem de erro na tela; aqui só o alerta.
+    } catch (err) {
+      // O hook já preenche a mensagem de erro na tela; aqui vem o alerta
+      // sonoro e a leitura em voz alta da mensagem do Sankhya.
       // Fica no catch (e não num useEffect sobre `error`) porque, se o
       // operador repetir a mesma leitura, a string de erro não muda e o
       // efeito não voltaria a disparar.
-      tocarAlertaErro();
+      tocarAlertaErro(err instanceof Error ? err.message : undefined);
     }
     finally { setConferindo(false); }
   }
 
+  async function handleBuscarProduto(e: FormEvent) {
+    e.preventDefault();
+    await executarConferencia();
+  }
+
   async function handleConferir() {
-    if (!codBarra.trim() || conferindo) return;
-    setConferindo(true);
-    try {
-      const qtd = parseFloat(quantidade).toFixed(9);
-      await conferirItem(codBarra.trim(), qtd);
-      setCodBarra('');
-      setQuantidade('1');
-      inputRef.current?.focus();
-    } catch {
-      // O hook já preenche a mensagem de erro na tela; aqui só o alerta.
-      // Fica no catch (e não num useEffect sobre `error`) porque, se o
-      // operador repetir a mesma leitura, a string de erro não muda e o
-      // efeito não voltaria a disparar.
-      tocarAlertaErro();
-    }
-    finally { setConferindo(false); }
+    await executarConferencia();
   }
 
   async function handleFinalizar() {

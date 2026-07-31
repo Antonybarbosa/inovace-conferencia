@@ -1,9 +1,12 @@
 /**
- * Alertas sonoros e táteis da conferência.
+ * Alertas sonoros, falados e táteis da conferência.
  *
- * O som é sintetizado em tempo de execução pela Web Audio API em vez de vir
- * de um arquivo .mp3/.wav. Isso evita peso no bundle, dispensa request de
- * rede (o coletor pode estar em rede instável) e funciona offline.
+ * O bipe é sintetizado em tempo de execução pela Web Audio API em vez de vir
+ * de um arquivo .mp3/.wav: não pesa no bundle, dispensa request de rede (o
+ * coletor pode estar em rede instável) e funciona offline.
+ *
+ * A leitura da mensagem usa a Web Speech API (SpeechSynthesis), nativa dos
+ * navegadores, sem dependência externa.
  *
  * Todas as funções falham em silêncio se a API não existir no dispositivo.
  */
@@ -12,7 +15,7 @@ let contexto: AudioContext | null = null;
 
 type JanelaComWebkit = Window & { webkitAudioContext?: typeof AudioContext };
 
-function obterContexto(): AudioContext | null {
+function criarContexto(): AudioContext | null {
   if (typeof window === 'undefined') return null;
 
   const Ctor = window.AudioContext ?? (window as JanelaComWebkit).webkitAudioContext;
@@ -26,13 +29,24 @@ function obterContexto(): AudioContext | null {
     }
   }
 
-  // Navegadores criam o contexto suspenso até o primeiro gesto do usuário.
-  // Como o alerta sempre nasce de um Enter/clique, o resume é permitido aqui.
-  if (contexto.state === 'suspended') {
-    void contexto.resume();
-  }
-
   return contexto;
+}
+
+/**
+ * Destrava o áudio do navegador.
+ *
+ * IMPORTANTE: precisa ser chamada de dentro do handler do evento do usuário
+ * (Enter, clique), de forma síncrona e ANTES de qualquer `await`. A política de
+ * autoplay do Chrome só libera o AudioContext enquanto a ativação do gesto
+ * está válida; criar o contexto depois do `await`, no `catch`, resultava em
+ * contexto suspenso e alerta mudo.
+ */
+export function prepararAudio(): void {
+  const ctx = criarContexto();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') {
+    void ctx.resume();
+  }
 }
 
 /** Agenda um bipe único no contexto de áudio */
@@ -60,6 +74,26 @@ function bipe(
   oscilador.stop(inicio + duracao);
 }
 
+/** Dois bipes descendentes de atenção */
+function tocarBipeErro(): void {
+  const ctx = criarContexto();
+  if (!ctx) return;
+
+  const agendar = () => {
+    const agora = ctx.currentTime;
+    bipe(ctx, 660, agora, 0.16, 0.18);
+    bipe(ctx, 440, agora + 0.2, 0.28, 0.18);
+  };
+
+  // Se o contexto ainda estiver suspenso, espera o resume para agendar —
+  // agendar em contexto suspenso faz o som se perder.
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(agendar).catch(() => undefined);
+  } else {
+    agendar();
+  }
+}
+
 /** Vibração de erro (ignorada em desktop e no iOS Safari) */
 export function vibrarErro(): void {
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
@@ -68,17 +102,84 @@ export function vibrarErro(): void {
 }
 
 /**
- * Alerta de erro: dois bipes descendentes.
- * Usado quando o Sankhya recusa a conferência do item
- * (quantidade acima do negociado, produto fora do pedido, etc.)
+ * Transforma a mensagem crua do Sankhya em algo que faça sentido ouvido.
+ *
+ * Entrada:
+ *   "[Sankhya ConferenciaSP.salvarItemConferido] Quantidade conferida maior do
+ *    que quantidade negociada no pedido/nota. (Produto: 11321)"
+ * Saída:
+ *   "Quantidade conferida maior do que quantidade negociada no pedido/nota.
+ *    Produto 1 1 3 2 1"
  */
-export function tocarAlertaErro(): void {
-  const ctx = obterContexto();
-  if (!ctx) return;
+export function prepararTextoParaFala(mensagem: string): string {
+  return mensagem
+    // Remove o prefixo técnico entre colchetes (nome do serviço Sankhya)
+    .replace(/^\s*\[[^\]]*\]\s*/, '')
+    // Código do produto dígito a dígito: "11321" falado como "onze mil
+    // trezentos e vinte e um" não ajuda quem procura a etiqueta na caixa
+    .replace(
+      /\(?\s*Produto:\s*(\d+)\s*\)?/gi,
+      (_todo, codigo: string) => `Produto ${codigo.split('').join(' ')}`,
+    )
+    // "pedido/nota" é lido como "pedido barra nota" por algumas vozes
+    .replace(/pedido\/nota/gi, 'pedido')
+    .replace(/\s+/g, ' ')
+    .trim()
+    // Trava de segurança: mensagem inesperadamente longa não prende o operador
+    .slice(0, 200);
+}
 
-  const agora = ctx.currentTime;
-  bipe(ctx, 660, agora, 0.16, 0.18);
-  bipe(ctx, 440, agora + 0.2, 0.28, 0.18);
+/** Escolhe a melhor voz pt-BR disponível, se houver */
+function vozPortugues(sintese: SpeechSynthesis): SpeechSynthesisVoice | null {
+  const vozes = sintese.getVoices();
+  if (!vozes.length) return null;
+  return (
+    vozes.find((v) => v.lang === 'pt-BR') ??
+    vozes.find((v) => v.lang?.toLowerCase().startsWith('pt')) ??
+    null
+  );
+}
 
+/** Lê um texto em voz alta */
+export function falar(texto: string): void {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  if (!texto) return;
+
+  const sintese = window.speechSynthesis;
+
+  try {
+    // Cancela a fala anterior: em leitura em sequência, o operador precisa
+    // ouvir o erro atual, não a fila acumulada.
+    sintese.cancel();
+
+    const fala = new SpeechSynthesisUtterance(texto);
+    fala.lang = 'pt-BR';
+    fala.rate = 1.05;
+    fala.volume = 1;
+
+    const voz = vozPortugues(sintese);
+    if (voz) fala.voice = voz;
+
+    sintese.speak(fala);
+  } catch {
+    // Dispositivo sem motor de voz instalado — segue sem falar
+  }
+}
+
+/**
+ * Alerta de erro: bipe de atenção, vibração e leitura da mensagem.
+ *
+ * @param mensagem Texto retornado pelo Sankhya. Se omitido, só bipa.
+ */
+export function tocarAlertaErro(mensagem?: string): void {
+  tocarBipeErro();
   vibrarErro();
+
+  if (!mensagem) return;
+
+  const texto = prepararTextoParaFala(mensagem);
+  if (!texto) return;
+
+  // Espera o bipe terminar (~0,48 s) para a voz não competir com ele
+  window.setTimeout(() => falar(texto), 520);
 }
