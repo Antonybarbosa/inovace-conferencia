@@ -90,7 +90,12 @@ export class ConferenciasController {
       const { nuNota } = req.body;
       if (!nuNota) { res.status(400).json({ error: 'nuNota é obrigatório' }); return; }
 
-      const result = await this.listarItensPedidoUseCase.execute({ nuNota }, req.correlationId);
+      // req.username vem do JWT (authMiddleware) e decide se os campos
+      // sensíveis vão na resposta. Não usar valor do body: seria burlável.
+      const result = await this.listarItensPedidoUseCase.execute(
+        { nuNota, usuario: req.username },
+        req.correlationId,
+      );
       res.status(200).json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

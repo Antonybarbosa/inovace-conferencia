@@ -8,6 +8,8 @@ declare global {
       correlationId?: string;
       startTime?: number;
       userId?: string;
+      /** Login Sankhya do usuário autenticado, extraído do JWT */
+      username?: string;
     }
   }
 }

@@ -1,5 +1,6 @@
 import { IGatewayPort } from '../../../../domain/ports/IGatewayPort.js';
 import { CONFERENCIA_CLIENT_EVENTS } from '../shared/clientEvents.js';
+import { podeVerCamposSensiveis } from '../../../../domain/permissions.js';
 
 export interface ItemPedido {
   codProd: string;
@@ -12,14 +13,41 @@ export interface ItemPedido {
   controle: string | null;
 }
 
+/**
+ * Situação do item, calculada no servidor.
+ *
+ * Existe para o frontend separar listas, marcar "Parcial" e contar sem
+ * precisar da quantidade pedida — que é justamente o dado escondido do
+ * conferente na conferência cega.
+ */
+export type StatusItem = 'pendente' | 'parcial' | 'completo';
+
+/**
+ * Item como sai na resposta HTTP.
+ * `qtdPed`, `codBarra` e `referencia` vêm `null` para usuários não
+ * privilegiados: são omitidos na origem, não apenas escondidos na tela.
+ */
+export interface ItemPedidoResponse extends Omit<ItemPedido, 'qtdPed'> {
+  qtdPed: string | null;
+  status: StatusItem;
+}
+
 export interface ListarItensPedidoInput {
   nuNota: number;
+  /**
+   * Login do usuário que está pedindo a lista. Define se os campos sensíveis
+   * (código de barras, referência, quantidade pedida) vão na resposta.
+   * Ausente = tratado como não privilegiado.
+   */
+  usuario?: string;
 }
 
 export interface ListarItensPedidoOutput {
   conferenciaIniciada: boolean;
-  itens: ItemPedido[];
+  itens: ItemPedidoResponse[];
   paginacao: boolean;
+  /** Informa ao frontend se ele recebeu os campos sensíveis */
+  camposSensiveis: boolean;
 }
 
 /**
@@ -96,10 +124,37 @@ export class ListarItensPedidoUseCase {
       return { ...item, qtdConf };
     });
 
+    // 4. Calcular o status no servidor e, se o usuário não for privilegiado,
+    //    remover os campos sensíveis da resposta.
+    const verCamposSensiveis = podeVerCamposSensiveis(input.usuario);
+
+    const itensResposta: ItemPedidoResponse[] = itens.map((item) => {
+      const pedido = parseFloat(item.qtdPed);
+      const conferido = parseFloat(item.qtdConf);
+
+      let status: StatusItem;
+      if (conferido >= pedido) status = 'completo';
+      else if (conferido > 0) status = 'parcial';
+      else status = 'pendente';
+
+      if (verCamposSensiveis) {
+        return { ...item, status };
+      }
+
+      return {
+        ...item,
+        status,
+        qtdPed: null,
+        codBarra: null,
+        referencia: null,
+      };
+    });
+
     return {
       conferenciaIniciada,
-      itens,
+      itens: itensResposta,
       paginacao: false,
+      camposSensiveis: verCamposSensiveis,
     };
   }
 

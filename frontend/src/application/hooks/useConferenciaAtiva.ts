@@ -79,8 +79,10 @@ export function useConferenciaAtiva(nuNota: number) {
           if (atualizado) {
             return atualizado; // Atualiza com dados novos
           }
-          // Item sumiu da resposta = totalmente conferido. Marcar qtdConf = qtdPed
-          return { ...item, qtdConf: item.qtdPed };
+          // Item sumiu da resposta = totalmente conferido.
+          // O status vem do servidor; aqui só marcamos o caso do item que
+          // desapareceu da lista de divergências.
+          return { ...item, status: 'completo' as const };
         });
 
         // Adicionar itens novos que não estavam na lista anterior (caso raro)

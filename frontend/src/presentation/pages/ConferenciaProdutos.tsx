@@ -99,7 +99,7 @@ export function ConferenciaProdutosPage() {
       const resultado = await finalizar(0, parseInt(qtdVolumes) || 0);
       
       // Verificar se há divergência na resposta ou se há itens pendentes
-      const pendentes = itens.filter(i => parseFloat(i.qtdConf) < parseFloat(i.qtdPed));
+      const pendentes = itens.filter((i) => i.status !== 'completo');
       if (pendentes.length > 0) {
         // Sankhya finalizou como divergente — mostrar modal
         setShowFinalizarModal(false);
@@ -140,7 +140,7 @@ export function ConferenciaProdutosPage() {
   }
 
   const totalItens = itens.length;
-  const itensConferidos = itens.filter((i) => parseFloat(i.qtdConf) >= parseFloat(i.qtdPed)).length;
+  const itensConferidos = itens.filter((i) => i.status === 'completo').length;
   const itensPendentes = totalItens - itensConferidos;
 
   if (loading && !conferencia) {
@@ -256,17 +256,14 @@ export function ConferenciaProdutosPage() {
               </tr>
             </thead>
             <tbody>
-              {itens.filter(i => parseFloat(i.qtdConf) < parseFloat(i.qtdPed)).sort((a, b) => {
-                // Parciais primeiro (qtdConf > 0), depois pendentes (qtdConf = 0)
-                const confA = parseFloat(a.qtdConf);
-                const confB = parseFloat(b.qtdConf);
-                if (confA > 0 && confB === 0) return -1;
-                if (confA === 0 && confB > 0) return 1;
-                return 0;
+              {itens.filter((i) => i.status !== 'completo').sort((a, b) => {
+                // Parciais primeiro, depois os que ninguém tocou
+                const parcialA = a.status === 'parcial' ? 0 : 1;
+                const parcialB = b.status === 'parcial' ? 0 : 1;
+                return parcialA - parcialB;
               }).map((item) => {
-                const qtdPed = parseFloat(item.qtdPed);
                 const qtdConf = parseFloat(item.qtdConf);
-                const parcial = qtdConf > 0 && qtdConf < qtdPed;
+                const parcial = item.status === 'parcial';
 
                 return (
                   <tr key={item.sequencia} className={parcial ? 'row-parcial' : ''}>
@@ -289,7 +286,7 @@ export function ConferenciaProdutosPage() {
                         </div>
                       </div>
                     </td>
-                    {verCamposSensiveis && <td className="num-cell">{qtdPed}</td>}
+                    {verCamposSensiveis && <td className="num-cell">{item.qtdPed}</td>}
                     <td className="num-cell">{qtdConf}</td>
                     <td>
                       {parcial && <span className="status-parcial">Parcial</span>}
@@ -318,15 +315,14 @@ export function ConferenciaProdutosPage() {
                 </tr>
               </thead>
               <tbody>
-                {itens.filter(i => parseFloat(i.qtdConf) > 0).sort((a, b) => {
+                {itens.filter((i) => parseFloat(i.qtdConf) > 0).sort((a, b) => {
                   // OK (completos) primeiro, depois parciais
-                  const completoA = parseFloat(a.qtdConf) >= parseFloat(a.qtdPed) ? 1 : 0;
-                  const completoB = parseFloat(b.qtdConf) >= parseFloat(b.qtdPed) ? 1 : 0;
+                  const completoA = a.status === 'completo' ? 1 : 0;
+                  const completoB = b.status === 'completo' ? 1 : 0;
                   return completoB - completoA;
                 }).map((item) => {
-                  const qtdPed = parseFloat(item.qtdPed);
                   const qtdConf = parseFloat(item.qtdConf);
-                  const completo = qtdConf >= qtdPed;
+                  const completo = item.status === 'completo';
 
                   return (
                     <tr key={item.sequencia} className={completo ? 'row-ok' : 'row-parcial'}>
@@ -349,7 +345,7 @@ export function ConferenciaProdutosPage() {
                           </div>
                         </div>
                       </td>
-                      {verCamposSensiveis && <td className="num-cell">{qtdPed}</td>}
+                      {verCamposSensiveis && <td className="num-cell">{item.qtdPed}</td>}
                       <td className="num-cell">{qtdConf}</td>
                       <td>
                         {completo ? <span className="status-ok">OK</span> : <span className="status-parcial">Parcial</span>}

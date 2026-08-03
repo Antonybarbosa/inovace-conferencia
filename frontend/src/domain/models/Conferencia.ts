@@ -17,15 +17,25 @@ export interface PedidoConferencia {
   qtdProdutosDistintos: number;
 }
 
+/**
+ * Situação do item, calculada pelo backend.
+ *
+ * A tela usa este campo em vez de comparar `qtdConf` com `qtdPed`, porque
+ * `qtdPed` não é enviada para usuários não privilegiados (conferência cega).
+ */
+export type StatusItem = 'pendente' | 'parcial' | 'completo';
+
 export interface ItemPedido {
   codProd: string;
   sequencia: string;
   descrProd: string | null;
   codBarra: string | null;
   referencia: string | null;
-  qtdPed: string;
+  /** `null` quando o usuário não tem permissão para ver a quantidade pedida */
+  qtdPed: string | null;
   qtdConf: string;
   controle: string | null;
+  status: StatusItem;
 }
 
 export interface ConferenciaIniciada {
