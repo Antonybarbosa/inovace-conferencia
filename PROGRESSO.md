@@ -27,19 +27,37 @@
 - Consulta SQL complexa com JOINs (DbExplorerSP)
 - Filtros dinâmicos (auto-detecta campos, dropdown para poucos valores)
 - Tags de filtro ativo com remoção individual
+- **Persistência de filtros** no localStorage (mantêm ao navegar entre páginas)
+- **Limpeza automática de filtros** no logout
+- Botão "Limpar tudo" para remover todos os filtros de uma vez
 - Cards compactos com status colorido (azul=pendente, amarelo=andamento, vermelho=recontagem)
 - Duplo clique para abrir conferência
 
 ### Tela de Conferência
 - Iniciar conferência via `ConferenciaSP.salvarCabecalhoConferencia`
 - Scanner: Enter confere direto (sem precisar clicar botão)
+- **Header compacto** com espaçamentos reduzidos para maximizar área útil
+- **Cards de resumo integrados** no header (Total, Conferidos, Pendentes)
+- **Sistema de abas** para alternar entre itens pendentes e conferidos
+- **Coluna de lote** em ambas as tabelas (pendentes e conferidos)
 - Lista separada: Pendentes (parciais primeiro) + Conferidos (OK primeiro)
+- **Centralização das colunas**: Lote, Pedido, Conferido, Status
 - Itens com imagem do produto (via .dbimage do Sankhya)
 - Ampliar imagem ao clicar
 - Modal de finalização com campo de volumes
-- Contadores compactos (Total, Conferidos, Pendentes)
+- **Campo quantidade inteligente**: inicia com 1, envia 1 se vazio, reseta para 1 após conferência
 - Suporte a itens duplicados (mesmo CODPROD, lotes diferentes) via SEQUENCIA
 - Itens conferidos nunca somem (merge inteligente com dados do Sankhya)
+
+### Melhorias de Interface e UX
+- **Header compacto da conferência**: espaçamentos reduzidos para maximizar área útil
+- **Cards de resumo integrados**: Total, Conferidos e Pendentes no header (não em Painel separado)
+- **Sistema de abas**: alternância rápida entre itens pendentes e conferidos
+- **Coluna de lote**: exibição do campo CONTROLE em ambas as tabelas
+- **Centralização de colunas**: Lote, Pedido, Conferido e Status centralizados
+- **Campo quantidade inteligente**: inicia com 1, envia 1 se vazio, reseta para 1 após conferência
+- **Persistência de filtros**: filtros dinâmicos e status selecionado salvos no localStorage
+- **Limpeza de filtros**: botão "Limpar tudo" e remoção automática no logout
 
 ### Permissões / Conferência cega
 - `backend/src/domain/permissions.ts` com `podeVerCamposSensiveis()` (regra do servidor)
@@ -116,6 +134,8 @@
 4. **listarItensPedido:** Retorna apenas divergentes (itens conferidos somem)
 5. **DbExplorerSP:** Apenas SELECT (não aceita UPDATE/INSERT)
 6. **Sandbox:** Não permite escrita em TGFCON2, TGFCAB via CRUDServiceProvider
+7. **Persistência de estado:** localStorage ideal para filtros e preferências de usuário
+8. **Abas vs Scroll:** Interface com abas mais eficiente que scroll longo em coletores
 
 ---
 
@@ -125,6 +145,7 @@
 - [x] Som/vibração no **erro** de conferência
 - [x] Ocultação de campos sensíveis no backend (não só visual)
 - [x] Consulta de produtos com saldo de estoque por empresa/local/lote
+- [x] Interface otimizada da tela de conferência (compactação, abas, lote, filtros persistentes)
 - [ ] Som/vibração de confirmação no **sucesso** da conferência
 - [ ] Testar em ambiente de produção (escrita na TGFCON2)
 - [ ] Leitor de código de barras via câmera (Capacitor plugin)
