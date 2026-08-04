@@ -4,6 +4,7 @@ import { useConferencias } from '../../application/hooks/useConferencias';
 import { Botao, Container, Painel, Label } from '../components';
 import { FiltrosDinamicos } from '../components/FiltrosDinamicos/FiltrosDinamicos';
 import { Loading } from '../components/Loading/Loading';
+import { ModalConsultaProduto } from '../components/ModalConsultaProduto/ModalConsultaProduto';
 import { PedidoConferencia } from '../../domain/models/Conferencia';
 import { useState, useEffect, useMemo } from 'react';
 
@@ -18,7 +19,14 @@ export function ListaConferenciasPage() {
   const { user, logout } = useAuth();
   const { pedidos, loading, error, recarregar } = useConferencias();
   const [pedidosFiltrados, setPedidosFiltrados] = useState<PedidoConferencia[]>([]);
-  const [statusSelecionado, setStatusSelecionado] = useState<string | null>(null);
+  const [statusSelecionado, setStatusSelecionado] = useState<string | null>(() => {
+    return localStorage.getItem('conferencia_status_selecionado');
+  });
+  const [filtrosDinamicos, setFiltrosDinamicos] = useState<Record<string, string>>(() => {
+    const stored = localStorage.getItem('conferencia_filtros');
+    return stored ? JSON.parse(stored) : {};
+  });
+  const [showModalProduto, setShowModalProduto] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const mensagemSucesso = (location.state as any)?.mensagem || null;
@@ -26,6 +34,20 @@ export function ListaConferenciasPage() {
   useEffect(() => {
     setPedidosFiltrados(pedidos);
   }, [pedidos]);
+
+  // Salvar status selecionado no localStorage
+  useEffect(() => {
+    if (statusSelecionado) {
+      localStorage.setItem('conferencia_status_selecionado', statusSelecionado);
+    } else {
+      localStorage.removeItem('conferencia_status_selecionado');
+    }
+  }, [statusSelecionado]);
+
+  // Salvar filtros dinâmicos no localStorage
+  useEffect(() => {
+    localStorage.setItem('conferencia_filtros', JSON.stringify(filtrosDinamicos));
+  }, [filtrosDinamicos]);
 
   // Contagem por status. Calculada sobre o resultado dos FiltrosDinamicos (e não
   // sobre o total) para os números refletirem o que está de fato disponível na
@@ -55,6 +77,15 @@ export function ListaConferenciasPage() {
     navigate(`/conferencias/${nunota}`);
   }
 
+  function handleFiltroDinamicoChange(novosFiltros: Record<string, string>) {
+    setFiltrosDinamicos(novosFiltros);
+  }
+
+  function handleLimparTodosFiltros() {
+    setFiltrosDinamicos({});
+    setStatusSelecionado(null);
+  }
+
   return (
     <div className="page-container">
       {/* Header */}
@@ -62,11 +93,14 @@ export function ListaConferenciasPage() {
         <h1>Conferências de Saída</h1>
         <div className="header-actions">
           <span className="user-info">{user?.nomeUsu}</span>
+          <Botao variant="secondary" size="sm" onClick={() => setShowModalProduto(true)}>
+            Consultar Produto
+          </Botao>
           <Botao variant="ghost" size="sm" onClick={logout}>Sair</Botao>
         </div>
       </header>
 
-      {/* Toolbar: atualizar + filtros + contagem + contadores por status */}
+       {/* Toolbar: atualizar + filtros + contagem + contadores por status */}
       <Container variant="default" padding="sm" className="toolbar-container">
         <div className="toolbar-row">
           <Botao variant="secondary" size="sm" onClick={recarregar} loading={loading}>
@@ -77,8 +111,16 @@ export function ListaConferenciasPage() {
             <FiltrosDinamicos
               dados={pedidos}
               onFiltrar={setPedidosFiltrados}
+              filtrosIniciais={filtrosDinamicos}
+              onFiltrosChange={handleFiltroDinamicoChange}
               className="filtros-container--inline"
             />
+          )}
+
+          {(Object.values(filtrosDinamicos).some(v => v !== '') || statusSelecionado) && (
+            <Botao variant="ghost" size="sm" onClick={handleLimparTodosFiltros}>
+              Limpar tudo
+            </Botao>
           )}
 
           <Label variant="caption" className="toolbar-contador">
@@ -185,6 +227,9 @@ export function ListaConferenciasPage() {
         </div>
       </Painel>
       )}
+
+      {/* Modal de consulta de produtos */}
+      <ModalConsultaProduto aberto={showModalProduto} onFechar={() => setShowModalProduto(false)} />
     </div>
   );
 }

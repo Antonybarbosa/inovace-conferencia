@@ -71,6 +71,9 @@ src/
 │   │   │   │   └── CortarNotaUseCase.ts
 │   │   │   └── shared/
 │   │   │       └── clientEvents.ts     # clientEventList padrão
+│   │   ├── produtos/
+│   │   │   ├── ConsultarProdutosUseCase.ts   # Busca por termo (TGFPRO)
+│   │   │   └── ConsultarEstoqueUseCase.ts    # Saldo por empresa/local/lote (TGFEST)
 │   │   └── proxy/
 │   │       └── GatewayProxyUseCase.ts
 │   ├── dtos/
@@ -94,7 +97,8 @@ src/
 │   │   │   ├── AuthController.ts
 │   │   │   ├── CrudController.ts
 │   │   │   ├── ApiProxyController.ts
-│   │   │   └── ConferenciasController.ts
+│   │   │   ├── ConferenciasController.ts
+│   │   │   └── ProdutoController.ts
 │   │   ├── middlewares/
 │   │   │   ├── authMiddleware.ts
 │   │   │   ├── correlationId.ts
@@ -105,6 +109,7 @@ src/
 │   │   │   ├── crudRoutes.ts
 │   │   │   ├── apiRoutes.ts
 │   │   │   ├── conferenciasRoutes.ts
+│   │   │   ├── produtoRoutes.ts
 │   │   │   └── index.ts
 │   │   └── types.ts
 │   └── server.ts
@@ -152,11 +157,17 @@ src/
 | POST | `/api/conferencias/cortar` | Corta nota por divergência |
 
 ### API Proxy (REST genérico)
-| Método | Rota | Descrição |
+| Method | Route | Description |
 |---|---|---|
 | GET | `/api/produtos` | Proxy para produtos |
 | GET | `/api/parceiros/clientes` | Proxy para clientes |
 | GET/POST/PUT | `/api/vendas/pedidos` | Proxy para pedidos |
+
+### Produtos
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/produtos?q={termo}&limite={n}` | Busca produtos por código ou descrição (TGFPRO) |
+| GET | `/api/produtos/estoque/{codProd}` | Consulta saldo de estoque por empresa, local e lote (TGFEST) |
 
 ### Utilitário
 | Método | Rota | Descrição |

@@ -14,6 +14,10 @@ interface CampoFiltro {
 interface FiltrosDinamicosProps<T extends object> {
   dados: T[];
   onFiltrar: (filtrados: T[]) => void;
+  /** Filtros iniciais (para persistência) */
+  filtrosIniciais?: Record<string, string>;
+  /** Callback quando os filtros mudam */
+  onFiltrosChange?: (filtros: Record<string, string>) => void;
   /** Campos que devem ser exibidos como filtros. Se não informado, gera automaticamente. */
   camposVisiveis?: CampoFiltro[];
   /**
@@ -59,10 +63,12 @@ function detectarTipo(key: string, valores: unknown[]): 'texto' | 'numero' | 'st
 export function FiltrosDinamicos<T extends object>({
   dados,
   onFiltrar,
+  filtrosIniciais = {},
+  onFiltrosChange,
   camposVisiveis,
   className = '',
 }: FiltrosDinamicosProps<T>) {
-  const [filtros, setFiltros] = useState<Record<string, string>>({});
+  const [filtros, setFiltros] = useState<Record<string, string>>(filtrosIniciais);
   const [aberto, setAberto] = useState(false);
 
   // Gerar campos automaticamente a partir dos dados
@@ -105,11 +111,14 @@ export function FiltrosDinamicos<T extends object>({
     const novosFiltros = { ...filtros, [key]: valor };
     setFiltros(novosFiltros);
     aplicarFiltros(novosFiltros);
+    onFiltrosChange?.(novosFiltros);
   }
 
   function handleLimpar() {
-    setFiltros({});
+    const novosFiltros = {};
+    setFiltros(novosFiltros);
     onFiltrar(dados);
+    onFiltrosChange?.(novosFiltros);
   }
 
   const temFiltroAtivo = Object.values(filtros).some(v => v !== '');

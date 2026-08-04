@@ -37,6 +37,7 @@ export function ConferenciaProdutosPage() {
   const [qtdVolumes, setQtdVolumes] = useState('1');
   const [finalizando, setFinalizando] = useState(false);
   const [imagemAmpliada, setImagemAmpliada] = useState<string | null>(null);
+  const [abaAtiva, setAbaAtiva] = useState<'pendentes' | 'conferidos'>('pendentes');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -61,7 +62,7 @@ export function ConferenciaProdutosPage() {
 
     setConferindo(true);
     try {
-      const qtd = parseFloat(quantidade).toFixed(9);
+      const qtd = (parseFloat(quantidade) || 1).toFixed(9);
       await conferirItem(codBarra.trim(), qtd);
       setCodBarra('');
       setQuantidade('1');
@@ -151,34 +152,30 @@ export function ConferenciaProdutosPage() {
     <div className="page-container">
       <div className="conferencia-top-fixo">
       {/* Header */}
-      <header className="page-header">
+       <header className="page-header">
         <Botao variant="ghost" size="sm" onClick={() => navigate('/conferencias')}>← Voltar</Botao>
         <div className="header-info">
           <h1>Conferência #{conferencia?.numConf}</h1>
           <span className="nota-info">Pedido {conferencia?.numNota} — {conferencia?.parceiro}</span>
         </div>
+        <div className="header-cards">
+          <Container variant="default" padding="sm" className="resumo-card-inline">
+            <Label variant="value">{totalItens}</Label>
+            <Label variant="caption">Total</Label>
+          </Container>
+          <Container variant="default" padding="sm" className="resumo-card-inline conferido">
+            <Label variant="value" className="text-success">{itensConferidos}</Label>
+            <Label variant="caption">Conferidos</Label>
+          </Container>
+          <Container variant="default" padding="sm" className="resumo-card-inline pendente">
+            <Label variant="value" className="text-warning">{itensPendentes}</Label>
+            <Label variant="caption">Pendentes</Label>
+          </Container>
+        </div>
         <Botao variant="success" size="sm" onClick={() => setShowFinalizarModal(true)} disabled={loading}>
           Finalizar
         </Botao>
       </header>
-
-      {/* Resumo */}
-      <Painel>
-        <Grid cols={3} gap="md">
-          <Container variant="default" padding="md" className="resumo-card">
-            <Label variant="value">{totalItens}</Label>
-            <Label variant="caption">Total</Label>
-          </Container>
-          <Container variant="default" padding="md" className="resumo-card conferido">
-            <Label variant="value" className="text-success">{itensConferidos}</Label>
-            <Label variant="caption">Conferidos</Label>
-          </Container>
-          <Container variant="default" padding="md" className="resumo-card pendente">
-            <Label variant="value" className="text-warning">{itensPendentes}</Label>
-            <Label variant="caption">Pendentes</Label>
-          </Container>
-        </Grid>
-      </Painel>
 
       {/* Scanner */}
       <Painel titulo="Conferir Produto">
@@ -230,135 +227,157 @@ export function ConferenciaProdutosPage() {
         </Container>
       )}
 
-      {/* Listas de itens - side by side em desktop */}
-      <div className="itens-grid-desktop">
-        {/* Itens Pendentes */}
-        <Painel titulo="Itens Pendentes" subtitulo={`${itensPendentes} restantes`}>
-        {itens.length === 0 && !error ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px' }}>
-            <DotLottieReact
-              src="https://lottie.host/f141a079-702f-4d37-88f7-c91b33722274/yQw3d1y8TG.lottie"
-              autoplay
-              loop
-              style={{ width: '150px', height: '150px' }}
-            />
-            <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--slate-500)', marginTop: '8px' }}>Carregando itens...</p>
-          </div>
-        ) : (
-        <Container variant="outlined" padding="none">
-          <table className="tabela-itens">
-            <thead>
-              <tr>
-                <th>Produto</th>
-                {verCamposSensiveis && <th>Pedido</th>}
-                <th>Conferido</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {itens.filter((i) => i.status !== 'completo').sort((a, b) => {
-                // Parciais primeiro, depois os que ninguém tocou
-                const parcialA = a.status === 'parcial' ? 0 : 1;
-                const parcialB = b.status === 'parcial' ? 0 : 1;
-                return parcialA - parcialB;
-              }).map((item) => {
-                const qtdConf = parseFloat(item.qtdConf);
-                const parcial = item.status === 'parcial';
+      {/* Listas de itens com abas */}
+      <Painel>
+        {/* Abas */}
+        <div className="tabs-container">
+          <button
+            className={`tab-button ${abaAtiva === 'pendentes' ? 'tab-active' : ''}`}
+            onClick={() => setAbaAtiva('pendentes')}
+          >
+            Itens Pendentes <span className="tab-count">{itensPendentes}</span>
+          </button>
+          <button
+            className={`tab-button ${abaAtiva === 'conferidos' ? 'tab-active' : ''}`}
+            onClick={() => setAbaAtiva('conferidos')}
+          >
+            Itens Conferidos <span className="tab-count">{itens.filter(i => parseFloat(i.qtdConf) > 0).length}</span>
+          </button>
+        </div>
 
-                return (
-                  <tr key={item.sequencia} className={parcial ? 'row-parcial' : ''}>
-                    <td>
-                      <div className="produto-cell">
-                        <img
-                          src={`/api/crud/produto/${item.codProd}/imagem`}
-                          alt={item.descrProd || ''}
-                          className="produto-img"
-                          onClick={() => setImagemAmpliada(`/api/crud/produto/${item.codProd}/imagem`)}
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                        <div>
-                          <span className="produto-desc">{item.descrProd || `Cod ${item.codProd}`}</span>
-                          <span className="produto-barra">
-                            {verCamposSensiveis
-                              ? `${item.codProd} | ${item.codBarra || '-'} | Ref: ${item.referencia || '-'}`
-                              : item.codProd}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-                    {verCamposSensiveis && <td className="num-cell">{item.qtdPed}</td>}
-                    <td className="num-cell">{qtdConf}</td>
-                    <td>
-                      {parcial && <span className="status-parcial">Parcial</span>}
-                      {!parcial && <span className="status-pendente">—</span>}
-                    </td>
+        {/* Conteúdo da aba Pendentes */}
+        {abaAtiva === 'pendentes' && (
+          <Container variant="outlined" padding="none">
+            {itens.length === 0 && !error ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px' }}>
+                <DotLottieReact
+                  src="https://lottie.host/f141a079-702f-4d37-88f7-c91b33722274/yQw3d1y8TG.lottie"
+                  autoplay
+                  loop
+                  style={{ width: '150px', height: '150px' }}
+                />
+                <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--slate-500)', marginTop: '8px' }}>Carregando itens...</p>
+              </div>
+            ) : (
+              <table className="tabela-itens">
+                <thead>
+                  <tr>
+                    <th>Produto</th>
+                    <th>Lote</th>
+                    {verCamposSensiveis && <th>Pedido</th>}
+                    <th>Conferido</th>
+                    <th>Status</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Container>
+                </thead>
+                <tbody>
+                  {itens.filter((i) => i.status !== 'completo').sort((a, b) => {
+                    const parcialA = a.status === 'parcial' ? 0 : 1;
+                    const parcialB = b.status === 'parcial' ? 0 : 1;
+                    return parcialA - parcialB;
+                  }).map((item) => {
+                    const qtdConf = parseFloat(item.qtdConf);
+                    const parcial = item.status === 'parcial';
+
+                    return (
+                      <tr key={item.sequencia} className={parcial ? 'row-parcial' : ''}>
+                        <td>
+                          <div className="produto-cell">
+                            <img
+                              src={`/api/crud/produto/${item.codProd}/imagem`}
+                              alt={item.descrProd || ''}
+                              className="produto-img"
+                              onClick={() => setImagemAmpliada(`/api/crud/produto/${item.codProd}/imagem`)}
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
+                            <div>
+                              <span className="produto-desc">{item.descrProd || `Cod ${item.codProd}`}</span>
+                              <span className="produto-barra">
+                                {verCamposSensiveis
+                                  ? `${item.codProd} | ${item.codBarra || '-'} | Ref: ${item.referencia || '-'}`
+                                  : item.codProd}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="num-cell">{item.controle || '-'}</td>
+                        {verCamposSensiveis && <td className="num-cell">{item.qtdPed}</td>}
+                        <td className="num-cell">{qtdConf}</td>
+                        <td>
+                          {parcial && <span className="status-parcial">Parcial</span>}
+                          {!parcial && <span className="status-pendente">—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </Container>
+        )}
+
+        {/* Conteúdo da aba Conferidos */}
+        {abaAtiva === 'conferidos' && (
+          <Container variant="outlined" padding="none">
+            {itens.filter(i => parseFloat(i.qtdConf) > 0).length === 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px' }}>
+                <p style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--slate-500)' }}>Nenhum item conferido ainda</p>
+              </div>
+            ) : (
+              <table className="tabela-itens">
+                <thead>
+                  <tr>
+                    <th>Produto</th>
+                    <th>Lote</th>
+                    {verCamposSensiveis && <th>Pedido</th>}
+                    <th>Conferido</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {itens.filter((i) => parseFloat(i.qtdConf) > 0).sort((a, b) => {
+                    const completoA = a.status === 'completo' ? 1 : 0;
+                    const completoB = b.status === 'completo' ? 1 : 0;
+                    return completoB - completoA;
+                  }).map((item) => {
+                    const qtdConf = parseFloat(item.qtdConf);
+                    const completo = item.status === 'completo';
+
+                    return (
+                      <tr key={item.sequencia} className={completo ? 'row-ok' : 'row-parcial'}>
+                        <td>
+                          <div className="produto-cell">
+                            <img
+                              src={`/api/crud/produto/${item.codProd}/imagem`}
+                              alt={item.descrProd || ''}
+                              className="produto-img"
+                              onClick={() => setImagemAmpliada(`/api/crud/produto/${item.codProd}/imagem`)}
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
+                            <div>
+                              <span className="produto-desc">{item.descrProd || `Cod ${item.codProd}`}</span>
+                              <span className="produto-barra">
+                                {verCamposSensiveis
+                                  ? `${item.codProd} | ${item.codBarra || '-'} | Ref: ${item.referencia || '-'}`
+                                  : item.codProd}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="num-cell">{item.controle || '-'}</td>
+                        {verCamposSensiveis && <td className="num-cell">{item.qtdPed}</td>}
+                        <td className="num-cell">{qtdConf}</td>
+                        <td>
+                          {completo ? <span className="status-ok">OK</span> : <span className="status-parcial">Parcial</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </Container>
         )}
       </Painel>
-
-      {/* Itens conferidos */}
-      {itens.filter(i => parseFloat(i.qtdConf) > 0).length > 0 && (
-        <Painel titulo="Itens Conferidos" subtitulo={`${itens.filter(i => parseFloat(i.qtdConf) > 0).length} com conferência`}>
-          <Container variant="outlined" padding="none">
-            <table className="tabela-itens">
-              <thead>
-                <tr>
-                  <th>Produto</th>
-                  {verCamposSensiveis && <th>Pedido</th>}
-                  <th>Conferido</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {itens.filter((i) => parseFloat(i.qtdConf) > 0).sort((a, b) => {
-                  // OK (completos) primeiro, depois parciais
-                  const completoA = a.status === 'completo' ? 1 : 0;
-                  const completoB = b.status === 'completo' ? 1 : 0;
-                  return completoB - completoA;
-                }).map((item) => {
-                  const qtdConf = parseFloat(item.qtdConf);
-                  const completo = item.status === 'completo';
-
-                  return (
-                    <tr key={item.sequencia} className={completo ? 'row-ok' : 'row-parcial'}>
-                      <td>
-                        <div className="produto-cell">
-                          <img
-                            src={`/api/crud/produto/${item.codProd}/imagem`}
-                            alt={item.descrProd || ''}
-                            className="produto-img"
-                            onClick={() => setImagemAmpliada(`/api/crud/produto/${item.codProd}/imagem`)}
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                          />
-                          <div>
-                            <span className="produto-desc">{item.descrProd || `Cod ${item.codProd}`}</span>
-                            <span className="produto-barra">
-                              {verCamposSensiveis
-                                ? `${item.codProd} | ${item.codBarra || '-'} | Ref: ${item.referencia || '-'}`
-                                : item.codProd}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                      {verCamposSensiveis && <td className="num-cell">{item.qtdPed}</td>}
-                      <td className="num-cell">{qtdConf}</td>
-                      <td>
-                        {completo ? <span className="status-ok">OK</span> : <span className="status-parcial">Parcial</span>}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </Container>
-        </Painel>
-      )}
-      </div>
 
       {/* Modal divergência */}
       {showDivergenciaModal && (

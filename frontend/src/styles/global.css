@@ -70,8 +70,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 28px;
-  gap: 16px;
+  margin-bottom: 12px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .page-header h1 {
@@ -79,6 +80,12 @@ body {
   font-weight: 900;
   color: var(--slate-900);
   letter-spacing: -0.03em;
+}
+
+.header-cards {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .header-actions {
@@ -364,8 +371,8 @@ body {
 }
 .ui-campo__input::placeholder { color: var(--slate-400); font-weight: 400; }
 .ui-campo--scanner .ui-campo__input {
-  padding: 18px 20px;
-  font-size: 1.2rem;
+  padding: 14px 16px;
+  font-size: 1.1rem;
   font-family: 'JetBrains Mono', monospace;
   border-color: var(--slate-200);
   background: white;
@@ -425,10 +432,10 @@ body {
   background: white;
 }
 
-.ui-painel { margin-bottom: 24px; }
-.ui-painel__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.ui-painel { margin-bottom: 20px; }
+.ui-painel__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .ui-painel__titulo { font-size: 1.1rem; font-weight: 800; color: var(--slate-900); }
-.ui-painel__subtitulo { font-size: 0.78rem; color: var(--slate-400); font-weight: 600; }
+.ui-painel__subtitulo { font-size: 0.75rem; color: var(--slate-400); font-weight: 600; }
 
 /* Grid */
 .ui-grid { display: grid; width: 100%; }
@@ -436,9 +443,9 @@ body {
 .ui-grid--cols-2 { grid-template-columns: repeat(2, 1fr); }
 .ui-grid--cols-3 { grid-template-columns: repeat(3, 1fr); }
 .ui-grid--cols-4 { grid-template-columns: repeat(4, 1fr); }
-.ui-grid--gap-sm { gap: 10px; }
-.ui-grid--gap-md { gap: 14px; }
-.ui-grid--gap-lg { gap: 24px; }
+.ui-grid--gap-sm { gap: 8px; }
+.ui-grid--gap-md { gap: 12px; }
+.ui-grid--gap-lg { gap: 20px; }
 
 /* ═══════════════════════════════════════
    MENSAGENS
@@ -658,13 +665,21 @@ body {
 .empty-state { text-align: center; padding: 60px 20px; color: var(--slate-400); font-weight: 600; }
 
 /* ═══════════════════════════════════════
-   CONFERENCIA ATIVA — Resumo Premium
-   ═══════════════════════════════════════ */
-.resumo-card { text-align: center; border-radius: 20px !important; padding: 6px 14px !important; display: flex; flex-direction: row; align-items: center; gap: 6px; justify-content: center; }
-.resumo-card .ui-label--value { font-size: 0.9rem; }
-.resumo-card .ui-label--caption { font-size: 0.65rem; margin-bottom: 0; }
+    CONFERENCIA ATIVA — Resumo Premium
+    ═══════════════════════════════════════ */
+.resumo-card { text-align: center; border-radius: 12px !important; padding: 8px 12px !important; display: flex; flex-direction: row; align-items: center; gap: 8px; justify-content: center; }
+.resumo-card .ui-label--value { font-size: 1.1rem; }
+.resumo-card .ui-label--caption { font-size: 0.7rem; margin-bottom: 0; }
 .resumo-card.conferido { border-color: #bbf7d0 !important; background: #f0fdf4 !important; }
 .resumo-card.pendente { border-color: #fde68a !important; background: #fffbeb !important; }
+
+.resumo-card-inline {
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  min-width: 70px;
+}
+.resumo-card-inline .ui-label--value { font-size: 0.95rem; }
+.resumo-card-inline .ui-label--caption { font-size: 0.65rem; }
 .text-success { color: var(--emerald-500) !important; }
 .text-warning { color: var(--amber-500) !important; }
 
@@ -694,7 +709,7 @@ body {
 /* Scanner area */
 .scanner-form-inner {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-end;
 }
 .scanner-form-inner .ui-campo:first-child { flex: 1; }
@@ -721,17 +736,19 @@ body {
 
 .tabela-itens { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .tabela-itens th {
-  text-align: left; padding: 12px 20px;
+  text-align: center; padding: 12px 20px;
   background: var(--slate-50);
   font-weight: 800; font-size: 0.7rem;
   text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--slate-400);
   border-bottom: 2px solid var(--slate-200);
 }
-.tabela-itens td { padding: 14px 20px; border-bottom: 1px solid var(--slate-100); }
+.tabela-itens th:first-child { text-align: left; }
+.tabela-itens td { padding: 14px 20px; border-bottom: 1px solid var(--slate-100); text-align: center; }
+.tabela-itens td:first-child { text-align: left; }
 .tabela-itens tbody tr { transition: background var(--transition); }
 .tabela-itens tbody tr:hover { background: var(--slate-50); }
-.tabela-itens .num-cell { text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tabela-itens .num-cell { font-weight: 700; font-variant-numeric: tabular-nums; }
 
 .produto-cell { display: flex; flex-direction: row; gap: 10px; align-items: center; }
 .produto-img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; background: var(--slate-100); flex-shrink: 0; }
@@ -929,25 +946,70 @@ body {
   top: 0;
   z-index: 100;
   background: var(--bg);
-  padding-bottom: 16px;
-  margin: -24px -20px 16px;
-  padding: 16px 20px;
+  padding: 12px 20px 10px;
+  margin: -24px -20px 8px;
 }
 
 
-/* Grid desktop: pendentes e conferidos lado a lado */
+/* Grid desktop: pendentes e conferidos em largura total */
 .itens-grid-desktop {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
 }
 
-@media (min-width: 900px) {
-  .itens-grid-desktop {
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    align-items: start;
-  }
+/* Abas */
+.tabs-container {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 2px solid var(--slate-200);
+  padding-bottom: 2px;
+}
+
+.tab-button {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--slate-400);
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tab-button:hover {
+  background: var(--slate-100);
+  color: var(--slate-700);
+}
+
+.tab-button.tab-active {
+  background: var(--slate-100);
+  color: var(--slate-900);
+  border-bottom: 2px solid var(--orange-500);
+  margin-bottom: -4px;
+}
+
+.tab-count {
+  background: var(--slate-200);
+  color: var(--slate-600);
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  min-width: 24px;
+  text-align: center;
+}
+
+.tab-button.tab-active .tab-count {
+  background: var(--orange-500);
+  color: white;
 }
 
 /* Reduzir espaçamentos gerais */

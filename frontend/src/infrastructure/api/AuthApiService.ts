@@ -32,5 +32,7 @@ export class AuthApiService implements IAuthService {
   logout(): void {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem('conferencia_filtros');
+    localStorage.removeItem('conferencia_status_selecionado');
   }
 }

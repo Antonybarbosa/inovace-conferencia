@@ -42,16 +42,24 @@
 - Itens conferidos nunca somem (merge inteligente com dados do Sankhya)
 
 ### Permissões / Conferência cega
-- `frontend/src/domain/permissions.ts` com `podeVerCamposSensiveis()`
-- Lista de privilegiados: `['SUP', 'ANTONY']` (aceita nome exato ou com sufixo `.`)
-- Para usuários comuns, nas listas de pendentes **e** conferidos:
-  - coluna **Pedido** (qtd negociada) omitida do header e das células
-  - linha secundária mostra só o código do produto (sem código de barras e sem referência)
-- Coluna **Conferido** permanece visível para todos
-- **Limitação conhecida:** a ocultação é só visual. O backend continua enviando
-  `codBarra`, `referencia` e `qtdPed` no JSON, então os valores aparecem no
-  DevTools. Para bloquear de fato, filtrar em `ListarItensPedidoUseCase`
-  decidindo pelo usuário da sessão.
+- `backend/src/domain/permissions.ts` com `podeVerCamposSensiveis()` (regra do servidor)
+- `frontend/src/domain/permissions.ts` espelha a lista (controle visual adicional)
+- Lista de privilegiados: `['SUP', 'ANTONY', 'ANTONY.B']` (comparação **exata**, sem prefixo)
+- Para usuários comuns, os campos sensíveis são **removidos na origem** (backend), não apenas escondidos na tela:
+  - `qtdPed`, `codBarra` e `referencia` vêm `null` no JSON
+  - impedem DevTools e bundle em cache de exibi-los
+- O **status** do item (`pendente` / `parcial` / `completo`) é **calculado no backend**, permitindo que o frontend organize as listas sem precisar da quantidade pedida
+
+### Consulta de Produtos
+- Botão **"Consultar Produto"** ao lado do nome do usuário na lista de conferências
+- Modal responsivo (ocupa a tela toda, adaptando largura/altura)
+- Busca por código ou descrição (TGFPRO via DbExplorerSP), aceita 1+ caractere
+- Botão **"Buscar"** ao lado do campo (ou Enter) — não busca mais a cada tecla digitada
+- Cada produto tem um botão **"Estoque"** que expande uma tabela inline com:
+  - Empresa, Local, Lote (CONTROLE), Saldo
+  - **Data de fabricação** (DTFABRICACAO) e **validade** (DTVAL) da TGFEST
+  - Linha de total somando todos os saldos
+- Backend: `GET /api/produtos?q={termo}&limite={n}` e `GET /api/produtos/estoque/{codProd}`
 
 ### Alertas sonoros
 - `frontend/src/infrastructure/audio/alertas.ts` com `tocarAlertaErro()`
@@ -115,8 +123,9 @@
 
 - [x] Deploy em Docker no servidor Linux — ver **[DEPLOY.md](DEPLOY.md)**
 - [x] Som/vibração no **erro** de conferência
+- [x] Ocultação de campos sensíveis no backend (não só visual)
+- [x] Consulta de produtos com saldo de estoque por empresa/local/lote
 - [ ] Som/vibração de confirmação no **sucesso** da conferência
-- [ ] Ocultação de campos sensíveis também no backend (hoje só visual)
 - [ ] Testar em ambiente de produção (escrita na TGFCON2)
 - [ ] Leitor de código de barras via câmera (Capacitor plugin)
 - [ ] Tratamento de divergências (tela de recontagem)
@@ -170,6 +179,7 @@ verificação e problemas já resolvidos em **[DEPLOY.md](DEPLOY.md)**.
 | [backend/ARCHITECTURE.md](backend/ARCHITECTURE.md) | Clean Architecture do backend |
 | [backend/AUTH_API.md](backend/AUTH_API.md) | Endpoints de autenticação |
 | [backend/CONFERENCIA_API.md](backend/CONFERENCIA_API.md) | Endpoints de conferência |
+| [backend/PRODUTO_API.md](backend/PRODUTO_API.md) | Endpoints de consulta de produtos e estoque |
 | [backend/CRUD_API.md](backend/CRUD_API.md) | Endpoints CRUD genéricos |
 | [frontend/LOTTIE.md](frontend/LOTTIE.md) | Padrão de uso das animações Lottie |
 | [frontend/MOBILE.md](frontend/MOBILE.md) | Build mobile com Capacitor |

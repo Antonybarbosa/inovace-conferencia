@@ -23,6 +23,10 @@ import { GetProdutoImagemUseCase } from './application/use-cases/crud/GetProduto
 // Application (Use Cases) - Proxy
 import { GatewayProxyUseCase } from './application/use-cases/proxy/GatewayProxyUseCase.js';
 
+// Application (Use Cases) - Produtos
+import { ConsultarProdutosUseCase } from './application/use-cases/produtos/ConsultarProdutosUseCase.js';
+import { ConsultarEstoqueUseCase } from './application/use-cases/produtos/ConsultarEstoqueUseCase.js';
+
 // Application (Use Cases) - Conferências (consulta)
 import { GetConferenciaSaidaUseCase } from './application/use-cases/conferencias/consulta/GetConferenciaSaidaUseCase.js';
 import { ListarItensPedidoUseCase } from './application/use-cases/conferencias/consulta/ListarItensPedidoUseCase.js';
@@ -46,6 +50,7 @@ import { AuthController } from './presentation/http/controllers/AuthController.j
 import { CrudController } from './presentation/http/controllers/CrudController.js';
 import { ApiProxyController } from './presentation/http/controllers/ApiProxyController.js';
 import { ConferenciasController } from './presentation/http/controllers/ConferenciasController.js';
+import { ProdutoController } from './presentation/http/controllers/ProdutoController.js';
 import { createAuthMiddleware } from './presentation/http/middlewares/authMiddleware.js';
 import { createServer } from './presentation/server.js';
 
@@ -86,6 +91,10 @@ export function buildApp(): Application {
 
   const gatewayProxyUseCase = new GatewayProxyUseCase(gatewayAdapter);
 
+  // Produtos
+  const consultarProdutosUseCase = new ConsultarProdutosUseCase(gatewayAdapter);
+  const consultarEstoqueUseCase = new ConsultarEstoqueUseCase(gatewayAdapter);
+
   // Conferências
   const getConferenciaSaidaUseCase = new GetConferenciaSaidaUseCase(gatewayAdapter);
   const iniciarConferenciaUseCase = new IniciarConferenciaUseCase(gatewayAdapter);
@@ -111,6 +120,7 @@ export function buildApp(): Application {
     getProdutoImagemUseCase,
   );
   const apiProxyController = new ApiProxyController(gatewayProxyUseCase);
+  const produtoController = new ProdutoController(consultarProdutosUseCase, consultarEstoqueUseCase);
   const conferenciasController = new ConferenciasController(
     getConferenciaSaidaUseCase,
     iniciarConferenciaUseCase,
@@ -132,7 +142,7 @@ export function buildApp(): Application {
   // 5. Montar servidor
   const app = createServer(
     { corsOrigin: appConfig.cors.origin },
-    { authController, crudController, apiProxyController, conferenciasController },
+    { authController, crudController, apiProxyController, conferenciasController, produtoController },
     authMiddleware,
   );
 
