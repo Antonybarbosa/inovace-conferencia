@@ -63,3 +63,8 @@ export interface ItemConferidoResponse {
   seqConf: string;
   referencia?: string;
 }
+
+export interface ConferirItemResponse {
+  resultado: ItemConferidoResponse;
+  itens: ItemPedido[];
+}

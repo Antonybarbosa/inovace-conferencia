@@ -57,7 +57,7 @@ export function useConferenciaAtiva(nuNota: number) {
 
     try {
       setError(null);
-      const resultado = await service.conferirItem({
+      const { resultado, itens: itensAtualizados } = await service.conferirItem({
         numConf: conferencia.numConf,
         nuNota,
         codBarra,
@@ -65,27 +65,18 @@ export function useConferenciaAtiva(nuNota: number) {
       });
       setUltimoConferido(resultado);
 
-      // Atualizar lista de itens — mesclar com itens atuais para não perder os já conferidos
-      const { itens: itensAtualizados } = await service.listarItensPedido(nuNota);
-      
       setItens(prev => {
-        // Mapa dos itens atualizados pelo Sankhya
         const mapaAtualizado = new Map(itensAtualizados.map(i => [i.sequencia || i.codProd, i]));
-        
-        // Atualizar itens existentes e manter os que sumiram da resposta (totalmente conferidos)
+
         const merged = prev.map(item => {
           const chave = item.sequencia || item.codProd;
           const atualizado = mapaAtualizado.get(chave);
           if (atualizado) {
-            return atualizado; // Atualiza com dados novos
+            return atualizado;
           }
-          // Item sumiu da resposta = totalmente conferido.
-          // O status vem do servidor; aqui só marcamos o caso do item que
-          // desapareceu da lista de divergências.
           return { ...item, status: 'completo' as const };
         });
 
-        // Adicionar itens novos que não estavam na lista anterior (caso raro)
         for (const item of itensAtualizados) {
           const chave = item.sequencia || item.codProd;
           if (!prev.find(p => (p.sequencia || p.codProd) === chave)) {

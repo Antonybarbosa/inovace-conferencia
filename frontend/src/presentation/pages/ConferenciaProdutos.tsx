@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useConferenciaAtiva } from '../../application/hooks/useConferenciaAtiva';
 import { useAuth } from '../../application/contexts/AuthContext';
 import { podeVerCamposSensiveis } from '../../domain/permissions';
-import { prepararAudio, tocarAlertaErro } from '../../infrastructure/audio/alertas';
+import { prepararAudio, tocarAlertaErro, tocarAlertaSucesso } from '../../infrastructure/audio/alertas';
 import { Botao, Campo, Container, Grid, Label, Painel } from '../components';
 import { Loading } from '../components/Loading/Loading';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
@@ -38,7 +38,9 @@ export function ConferenciaProdutosPage() {
   const [finalizando, setFinalizando] = useState(false);
   const [imagemAmpliada, setImagemAmpliada] = useState<string | null>(null);
   const [abaAtiva, setAbaAtiva] = useState<'pendentes' | 'conferidos'>('pendentes');
+  const [feedbackVisual, setFeedbackVisual] = useState<{ codProd: string; descrProd: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (nuNotaNum) iniciar();
@@ -47,6 +49,10 @@ export function ConferenciaProdutosPage() {
   useEffect(() => {
     if (conferencia && inputRef.current) inputRef.current.focus();
   }, [conferencia]);
+
+  useEffect(() => {
+    return () => { if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current); };
+  }, []);
 
   /**
    * Fluxo único de conferência, usado pelo Enter no campo e pelo botão.
@@ -63,10 +69,15 @@ export function ConferenciaProdutosPage() {
     setConferindo(true);
     try {
       const qtd = (parseFloat(quantidade) || 1).toFixed(9);
-      await conferirItem(codBarra.trim(), qtd);
+      const resultado = await conferirItem(codBarra.trim(), qtd);
       setCodBarra('');
       setQuantidade('1');
       inputRef.current?.focus();
+
+      tocarAlertaSucesso();
+      if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+      setFeedbackVisual({ codProd: resultado.codProd, descrProd: resultado.descrProd });
+      feedbackTimeoutRef.current = setTimeout(() => setFeedbackVisual(null), 1200);
     } catch (err) {
       // O hook já preenche a mensagem de erro na tela; aqui vem o alerta
       // sonoro e a leitura em voz alta da mensagem do Sankhya.
@@ -424,6 +435,24 @@ export function ConferenciaProdutosPage() {
                 Confirmar
               </Botao>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Feedback visual de conferência bem-sucedida */}
+      {feedbackVisual && (
+        <div className="feedback-overlay">
+          <div className="feedback-card">
+            <div className="feedback-img-wrapper">
+              <span className="feedback-check">&#10003;</span>
+              <img
+                src={`/api/crud/produto/${feedbackVisual.codProd}/imagem`}
+                alt={feedbackVisual.descrProd}
+                className="feedback-img"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            </div>
+            <span className="feedback-nome">{feedbackVisual.descrProd}</span>
           </div>
         </div>
       )}

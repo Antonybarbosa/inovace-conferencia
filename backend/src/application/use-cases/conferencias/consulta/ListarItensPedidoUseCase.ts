@@ -60,42 +60,21 @@ export class ListarItensPedidoUseCase {
   constructor(private readonly gateway: IGatewayPort) {}
 
   async execute(input: ListarItensPedidoInput, correlationId?: string): Promise<ListarItensPedidoOutput> {
-    // 1. Buscar TODOS os itens da nota via SQL (fonte completa)
-    const todosItens = await this.buscarTodosItensDaNota(input.nuNota, correlationId);
+    // 1. Buscar TODOS os itens da nota via SQL e qtdConf via ConferenciaSP em paralelo
+    const [todosItens, divergenciasResult] = await Promise.all([
+      this.buscarTodosItensDaNota(input.nuNota, correlationId),
+      this.buscarDivergencias(input.nuNota, correlationId),
+    ]);
 
-    // 2. Buscar qtdConf via ConferenciaSP (retorna apenas divergentes)
     let conferenciaIniciada = false;
     const qtdConfMap = new Map<string, string>();
 
-    try {
-      const response = await this.gateway.serviceCall<any>(
-        'ConferenciaSP.listarItensPedido',
-        {
-          serviceName: 'ConferenciaSP.listarItensPedido',
-          requestBody: {
-            params: { nuNota: input.nuNota },
-            ...CONFERENCIA_CLIENT_EVENTS,
-          },
-        },
-        correlationId,
-        'mgecom',
-      );
-
-      const body = response.responseBody;
-      conferenciaIniciada = body?.DIVERGENCIAS?.CONFERENCIA_INICIADA === 'true';
-      const produtos = body?.DIVERGENCIAS?.PRODUTO || [];
-      const lista = Array.isArray(produtos) ? produtos : [produtos];
-
-      for (const p of lista) {
-        const codProd = p.CODPROD?.$ || '';
-        const qtdConf = p.QTDCONF?.$ || '0';
-        if (codProd) qtdConfMap.set(codProd, qtdConf);
-      }
-    } catch {
-      // Se falhar, continuamos sem as qtdConf (todos ficam como 0)
+    if (divergenciasResult) {
+      conferenciaIniciada = divergenciasResult.conferenciaIniciada;
+      divergenciasResult.qtdConfMap.forEach((v, k) => qtdConfMap.set(k, v));
     }
 
-    // 3. Cruzar: distribuir qtdConf por sequência
+    // 2. Cruzar: distribuir qtdConf por sequência
     // O Sankhya agrupa por CODPROD, mas temos múltiplas sequências do mesmo produto
     const itens: ItemPedido[] = todosItens.map((item) => {
       const qtdConfFromSankhya = qtdConfMap.get(item.codProd);
@@ -203,6 +182,46 @@ export class ListarItensPedidoUseCase {
       }));
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * Busca as divergências (qtdConf por CODPROD) via ConferenciaSP.
+   * Retorna null se a chamada falhar — o caller trata como "sem qtdConf".
+   */
+  private async buscarDivergencias(
+    nuNota: number,
+    correlationId?: string,
+  ): Promise<{ conferenciaIniciada: boolean; qtdConfMap: Map<string, string> } | null> {
+    try {
+      const response = await this.gateway.serviceCall<any>(
+        'ConferenciaSP.listarItensPedido',
+        {
+          serviceName: 'ConferenciaSP.listarItensPedido',
+          requestBody: {
+            params: { nuNota },
+            ...CONFERENCIA_CLIENT_EVENTS,
+          },
+        },
+        correlationId,
+        'mgecom',
+      );
+
+      const body = response.responseBody;
+      const conferenciaIniciada = body?.DIVERGENCIAS?.CONFERENCIA_INICIADA === 'true';
+      const produtos = body?.DIVERGENCIAS?.PRODUTO || [];
+      const lista = Array.isArray(produtos) ? produtos : [produtos];
+
+      const qtdConfMap = new Map<string, string>();
+      for (const p of lista) {
+        const codProd = p.CODPROD?.$ || '';
+        const qtdConf = p.QTDCONF?.$ || '0';
+        if (codProd) qtdConfMap.set(codProd, qtdConf);
+      }
+
+      return { conferenciaIniciada, qtdConfMap };
+    } catch {
+      return null;
     }
   }
 }

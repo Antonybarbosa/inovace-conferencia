@@ -128,7 +128,7 @@ export class ConferenciasController {
     }
   }
 
-  /** POST /conferencias/conferir-item — Confere um item */
+  /** POST /conferencias/conferir-item — Confere um item e retorna os itens atualizados */
   async conferirItem(req: Request, res: Response): Promise<void> {
     try {
       const { numConf, nuNota, codBarra, controle, qtdConf, substituirProduto, volume, exigeIdentificadores, codUMA } = req.body;
@@ -141,7 +141,13 @@ export class ConferenciasController {
         { numConf, nuNota, codBarra, controle, qtdConf, substituirProduto, volume, exigeIdentificadores, codUMA },
         req.correlationId,
       );
-      res.status(200).json(result);
+
+      const itensResult = await this.listarItensPedidoUseCase.execute(
+        { nuNota, usuario: req.username },
+        req.correlationId,
+      );
+
+      res.status(200).json({ resultado: result.resultado, itens: itensResult.itens });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

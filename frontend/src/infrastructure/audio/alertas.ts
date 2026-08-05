@@ -94,11 +94,42 @@ function tocarBipeErro(): void {
   }
 }
 
+/** Dois bipes ascendentes de confirmação (sucesso) */
+function tocarBipeSucesso(): void {
+  const ctx = criarContexto();
+  if (!ctx) return;
+
+  const agendar = () => {
+    const agora = ctx.currentTime;
+    bipe(ctx, 880, agora, 0.07, 0.12);
+    bipe(ctx, 1175, agora + 0.08, 0.11, 0.12);
+  };
+
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(agendar).catch(() => undefined);
+  } else {
+    agendar();
+  }
+}
+
 /** Vibração de erro (ignorada em desktop e no iOS Safari) */
 export function vibrarErro(): void {
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
     navigator.vibrate([120, 80, 220]);
   }
+}
+
+/** Vibração curta de sucesso */
+export function vibrarSucesso(): void {
+  if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+    navigator.vibrate(60);
+  }
+}
+
+/** Alerta de sucesso: bipe ascendente curto e vibração leve */
+export function tocarAlertaSucesso(): void {
+  tocarBipeSucesso();
+  vibrarSucesso();
 }
 
 /** Resolve um CODPROD para a descrição do produto, quando conhecida */

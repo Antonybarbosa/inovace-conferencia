@@ -3,7 +3,7 @@ import {
   ItemPedido,
   ConferenciaIniciada,
   ProdutoConferencia,
-  ItemConferidoResponse,
+  ConferirItemResponse,
 } from '../models/Conferencia';
 
 export interface IConferenciaService {
@@ -16,7 +16,7 @@ export interface IConferenciaService {
     nuNota: number;
     codBarra: string;
     qtdConf: string;
-  }): Promise<ItemConferidoResponse>;
+  }): Promise<ConferirItemResponse>;
   finalizarConferencia(nuConf: string, peso?: number, qtdVol?: number): Promise<any>;
   excluirConferencia(nuNota: number): Promise<{ qtdConferenciasExcluidas: number }>;
 }

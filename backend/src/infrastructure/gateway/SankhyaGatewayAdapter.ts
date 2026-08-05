@@ -21,6 +21,7 @@ const MGECOM_ENDPOINT = '/gateway/v1/mgecom/service.sbr';
 export class SankhyaGatewayAdapter implements IGatewayPort {
   private client: AxiosInstance;
   private token: Token | null = null;
+  private authPromise: Promise<string> | null = null;
 
   constructor(private readonly config: GatewayConfig) {
     this.client = axios.create({
@@ -158,7 +159,16 @@ export class SankhyaGatewayAdapter implements IGatewayPort {
       return this.token.value;
     }
 
-    return this.authenticate();
+    if (this.authPromise) {
+      return this.authPromise;
+    }
+
+    this.authPromise = this.authenticate();
+    try {
+      return await this.authPromise;
+    } finally {
+      this.authPromise = null;
+    }
   }
 
   private async authenticate(): Promise<string> {
@@ -179,14 +189,14 @@ export class SankhyaGatewayAdapter implements IGatewayPort {
       },
     );
 
-    const expiresInMs = (response.data.expires_in - 300) * 1000;
+    const expiresInSec = response.data.expires_in;
+    console.log(`[GatewayAdapter] Token obtido — expires_in: ${expiresInSec}s`);
 
     this.token = new Token({
       value: response.data.access_token,
-      expiresAt: new Date(Date.now() + expiresInMs),
+      expiresAt: new Date(Date.now() + expiresInSec * 1000),
     });
 
-    console.log('[GatewayAdapter] Autenticação bem-sucedida no Gateway');
     return this.token.value;
   }
 }

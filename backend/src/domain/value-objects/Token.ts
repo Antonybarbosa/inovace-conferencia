@@ -17,9 +17,7 @@ export class Token {
   }
 
   isExpired(): boolean {
-    // Margem de 5 minutos para renovação antecipada
-    const margin = 5 * 60 * 1000;
-    return Date.now() >= this.expiresAt.getTime() - margin;
+    return Date.now() >= this.expiresAt.getTime();
   }
 
   toString(): string {

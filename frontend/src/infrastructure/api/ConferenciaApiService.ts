@@ -4,7 +4,7 @@ import {
   ItemPedido,
   ConferenciaIniciada,
   ProdutoConferencia,
-  ItemConferidoResponse,
+  ConferirItemResponse,
 } from '../../domain/models/Conferencia';
 import { httpClient } from './httpClient';
 
@@ -40,12 +40,12 @@ export class ConferenciaApiService implements IConferenciaService {
     nuNota: number;
     codBarra: string;
     qtdConf: string;
-  }): Promise<ItemConferidoResponse> {
-    const response = await httpClient.post<{ resultado: ItemConferidoResponse }>(
+  }): Promise<ConferirItemResponse> {
+    const response = await httpClient.post<ConferirItemResponse>(
       '/api/conferencias/conferir-item',
       params,
     );
-    return response.data.resultado;
+    return response.data;
   }
 
   async finalizarConferencia(nuConf: string, peso = 0, qtdVol = 0): Promise<any> {
