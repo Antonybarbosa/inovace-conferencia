@@ -31,10 +31,6 @@ export function ListaConferenciasPage() {
   const location = useLocation();
   const mensagemSucesso = (location.state as any)?.mensagem || null;
 
-  useEffect(() => {
-    setPedidosFiltrados(pedidos);
-  }, [pedidos]);
-
   // Salvar status selecionado no localStorage
   useEffect(() => {
     if (statusSelecionado) {

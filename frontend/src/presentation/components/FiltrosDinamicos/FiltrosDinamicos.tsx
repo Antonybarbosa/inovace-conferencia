@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Botao } from '../Botao/Botao';
 import { Campo } from '../Campo/Campo';
 import './FiltrosDinamicos.css';
@@ -106,6 +106,10 @@ export function FiltrosDinamicos<T extends object>({
     });
     onFiltrar(filtrados);
   }, [dados, onFiltrar]);
+
+  useEffect(() => {
+    aplicarFiltros(filtros);
+  }, [aplicarFiltros]);
 
   function handleChange(key: string, valor: string) {
     const novosFiltros = { ...filtros, [key]: valor };

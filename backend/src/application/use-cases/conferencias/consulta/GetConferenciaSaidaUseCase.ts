@@ -35,18 +35,17 @@ export class GetConferenciaSaidaUseCase {
   async execute(correlationId?: string): Promise<GetConferenciaSaidaOutput> {
     const sql = `
 SELECT
-    --CON.STATUS||CON2.STATUS,
     CAB.NUNOTA,
     CAB.CODEMP,
     CAB.DTFATUR AS DT_FATURAMENTO,
     CON.DHINICONF AS DT_INICIO_CONFERENCIA,
     CON.NUCONF,
-    CAB.AD_USUARIOCONF  AS USUARIO_CONFERENTE,
+    CAB.AD_USUARIOCONF AS USUARIO_CONFERENTE,
     CAB.NUNOTA AS NRO_UNICO,
-    DECODE(CON.STATUS||CON2.STATUS,'A','Em andamento', 
-                  'D','Finalizada Divergente', 
-                  'F', 'Finalizada OK', 
-                  'R', 'Aguardando recontagem', 
+    DECODE(CON.STATUS||CON2.STATUS,'A','Em andamento',
+                  'D','Finalizada Divergente',
+                  'F', 'Finalizada OK',
+                  'R', 'Aguardando recontagem',
                   'AR', 'Recontagem em Andamento',
                   'FR', 'Recontagem Finalizada OK',
                   'Aguardando Conferência')
@@ -58,11 +57,7 @@ SELECT
     PAR.RAZAOSOCIAL AS PARCEIRO,
     CAB.OBSERVACAO AS OBS_PEDIDO,
     CAB.QTDVOL AS QTD_VOLUMES,
-    (
-        SELECT COUNT(DISTINCT I.CODPROD)
-        FROM TGFITE I
-        WHERE I.NUNOTA = CAB.NUNOTA
-    ) AS QTD_PRODUTOS_DISTINTOS
+    ITE.QTD_PRODUTOS_DISTINTOS
 FROM TGFCAB CAB
 INNER JOIN TGFTOP TOP
         ON TOP.CODTIPOPER = CAB.CODTIPOPER
@@ -71,34 +66,31 @@ LEFT JOIN TGFCON2 CON
        ON CON.NUCONF = CAB.NUCONFATUAL
 LEFT JOIN TGFCON2 CON2
        ON CON2.NUCONF = CON.NUCONFORIG
-LEFT JOIN TSIUSU USU
-       ON USU.CODUSU = CON.CODUSUCONF
 LEFT JOIN TGFPAR PAR
        ON PAR.CODPARC = CAB.CODPARC
 LEFT JOIN TGFPAR TRANS
        ON TRANS.CODPARC = CAB.CODPARCTRANSP
-LEFT JOIN TGFORD ORD
-       ON ORD.CODEMP = CAB.CODEMP
-      AND ORD.ORDEMCARGA = CAB.ORDEMCARGA
-LEFT JOIN TGFRTP RTP
-       ON RTP.CODPARC = CAB.CODPARC
-LEFT JOIN TGFROT ROT
-       ON ROT.CODROTA = RTP.CODROTA
+LEFT JOIN (
+    SELECT RTP.CODPARC, MIN(ROT.DESCRROTA) AS DESCRROTA
+    FROM TGFRTP RTP
+    INNER JOIN TGFROT ROT ON ROT.CODROTA = RTP.CODROTA
+    GROUP BY RTP.CODPARC
+) ROT ON ROT.CODPARC = CAB.CODPARC
+INNER JOIN (
+    SELECT I.NUNOTA, COUNT(DISTINCT I.CODPROD) AS QTD_PRODUTOS_DISTINTOS
+    FROM TGFITE I
+    GROUP BY I.NUNOTA
+) ITE ON ITE.NUNOTA = CAB.NUNOTA
 WHERE CAB.TIPMOV = 'P'
     AND CAB.PENDENTE = 'S'
     AND CAB.STATUSNOTA = 'L'
-    AND EXISTS (
-        SELECT DISTINCT I.CODPROD
-        FROM TGFITE I
-        WHERE I.NUNOTA = CAB.NUNOTA
-    )
     AND NOT EXISTS (
         SELECT 1 FROM TGFVAR WHERE NUNOTAORIG = CAB.NUNOTA
     )
     AND CAB.CODPARC NOT IN (32698, 1502, 37104, 791)
     AND NVL(TOP.NUCCO,0) > 0
     AND CAB.CODVEND NOT IN (43)
-    AND NVL(CON.STATUS,'S') IN ('A','R','S') 
+    AND NVL(CON.STATUS,'S') IN ('A','R','S')
     `.trim();
 
     const response = await this.gateway.serviceCall<any>(
@@ -111,7 +103,10 @@ WHERE CAB.TIPMOV = 'P'
     );
 
     const body = response.responseBody;
-    const rows: any[] = body?.rows || [];
+    const timeQuery = body?.timeQuery || '';
+    if (timeQuery) {
+      console.log(`[GetConferenciaSaida] Query Sankhya: ${timeQuery}`);
+    }    const rows: any[] = body?.rows || [];
     const metadata: { name: string }[] = body?.fieldsMetadata || [];
 
     const records: ConferenciaSaidaRecord[] = rows.map((row) => {
