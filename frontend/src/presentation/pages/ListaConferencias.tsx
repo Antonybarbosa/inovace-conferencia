@@ -81,11 +81,6 @@ export function ListaConferenciasPage() {
     setFiltrosDinamicos(novosFiltros);
   }
 
-  function handleLimparTodosFiltros() {
-    setFiltrosDinamicos({});
-    setStatusSelecionado(null);
-  }
-
   return (
     <div className="page-container">
       {/* Header */}
@@ -115,12 +110,6 @@ export function ListaConferenciasPage() {
               onFiltrosChange={handleFiltroDinamicoChange}
               className="filtros-container--inline"
             />
-          )}
-
-          {(Object.values(filtrosDinamicos).some(v => v !== '') || statusSelecionado) && (
-            <Botao variant="ghost" size="sm" onClick={handleLimparTodosFiltros}>
-              Limpar tudo
-            </Botao>
           )}
 
           <Label variant="caption" className="toolbar-contador">
